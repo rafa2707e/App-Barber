@@ -24,6 +24,8 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "scheme": "com.googleusercontent.apps.YOUR_GOOGLE_CLIENT_ID",
+    "facebookScheme": "fbYOUR_FACEBOOK_APP_ID"
   }
 }

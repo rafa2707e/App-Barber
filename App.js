@@ -15,21 +15,26 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
-          <>
-            <Stack.Screen name="Home" component={HomeScreen} initialParams={{ user }} />
-            <Stack.Screen name="Appointment" component={AppointmentScreen} />
-            <Stack.Screen name="TimeSelection" component={TimeSelectionScreen} />
-            <Stack.Screen name="PhotoUpload" component={PhotoUploadScreen} />
-            <Stack.Screen name="Payment" component={PaymentScreen} />
-          </>
-        ) : (
-          <Stack.Screen name="Login">
-            {(props) => <LoginScreen {...props} setUser={setUser} />}
-          </Stack.Screen>
-        )}
-      </Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+  {user ? (
+    <>
+      <Stack.Screen
+        name="Home"
+        component={HomeScreen}
+        initialParams={{ user }}
+      />
+      <Stack.Screen name="Appointment" component={AppointmentScreen} />
+      <Stack.Screen name="TimeSelection" component={TimeSelectionScreen} />
+      <Stack.Screen name="PhotoUpload" component={PhotoUploadScreen} />
+      <Stack.Screen name="Payment" component={PaymentScreen} />
+    </>
+  ) : (
+    <Stack.Screen name="Login">
+      {props => <LoginScreen {...props} setUser={setUser} />}
+    </Stack.Screen>
+  )}
+</Stack.Navigator>
+
     </NavigationContainer>
   );
 }

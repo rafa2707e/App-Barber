@@ -12,13 +12,13 @@ export default function PaymentChoiceOverlay({ visible, onClose, onPayNow, onPay
       <View style={styles.overlay}>
         <View style={styles.container}>
           <Text style={styles.title}>Como deseja pagar?</Text>
-          <TouchableOpacity style={styles.button} onPress={onPayNow}>
-            <Text style={styles.buttonText}>Pagar Agora</Text>
+          <TouchableOpacity style={[styles.button, {backgroundColor: '#D62828'}]} onPress={onPayNow} activeOpacity={0.8}>
+            <Text style={styles.buttonText}>Pagar com PIX</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={onPayAtBarber}>
-            <Text style={styles.buttonText}>Pagar com o Barbeiro</Text>
+          <TouchableOpacity style={[styles.button, {backgroundColor: '#007BFF'}]} onPress={onPayAtBarber} activeOpacity={0.8}>
+            <Text style={styles.buttonText}>Pagar na Barbearia</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+          <TouchableOpacity style={styles.cancelButton} onPress={onClose} activeOpacity={0.8}>
             <Text style={styles.cancelButtonText}>Cancelar</Text>
           </TouchableOpacity>
         </View>
@@ -35,34 +35,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   container: {
-    backgroundColor: '#000',
-    padding: 30,
+    backgroundColor: '#FFFFFF',
+    padding: 25,
     borderRadius: 20,
     width: '80%',
     alignItems: 'center',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 10,
   },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFD700',
+    color: '#212529',
     marginBottom: 20,
   },
   button: {
-    backgroundColor: '#FFD700',
     paddingVertical: 15,
-    paddingHorizontal: 40,
     borderRadius: 12,
     marginBottom: 15,
     width: '100%',
     alignItems: 'center',
   },
   buttonText: {
-    color: '#000',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -70,7 +63,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   cancelButtonText: {
-    color: '#FFD700',
+    color: '#6C757D',
     fontSize: 16,
   },
 });

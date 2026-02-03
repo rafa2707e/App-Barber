@@ -1,188 +1,69 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Animated, SafeAreaView } from 'react-native';
+import { styled } from 'nativewind';
+import moment from 'moment';
+
+const StyledView = styled(View);
+const StyledText = styled(Text);
+const StyledSafeAreaView = styled(SafeAreaView);
+const StyledScrollView = styled(ScrollView);
+const StyledTouchableOpacity = styled(TouchableOpacity);
+
+const TIME_SLOTS = [
+  '09:30 AM', '09:00 AM', '11:00 AM', 
+  '10:00 AM', '10:30 AM', '01:00 PM',
+  '01:30 PM', '02:00 PM', '02:30 PM',
+];
 
 export default function AppointmentScreen({ navigation }) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(null);
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const [selectedDate, setSelectedDate] = useState(moment());
+  const [selectedTime, setSelectedTime] = useState(null);
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    Animated.sequence([
-      Animated.timing(fadeAnim, { toValue: 0.5, duration: 200, useNativeDriver: true }),
-      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-    ]).start(() => {
-      navigation.navigate('TimeSelection', { selectedDate: date });
-    });
-  };
-
-  const getDaysInMonth = (date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const days = [];
-
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      days.push(null);
-    }
-
-    // Add days of the month
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-      days.push(new Date(year, month, day));
-    }
-
-    return days;
-  };
-
-  const formatMonth = (date) => {
-    return date.toLocaleDateString('pt-BR', {
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  const isToday = (date) => {
-    const today = new Date();
-    return date.getDate() === today.getDate() &&
-           date.getMonth() === today.getMonth() &&
-           date.getFullYear() === today.getFullYear();
-  };
-
-  const isPast = (date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date < today;
-  };
-
-  const daysInMonth = getDaysInMonth(currentMonth);
+  const week = Array.from({ length: 7 }, (_, i) => moment().add(i, 'days'));
 
   return (
-    <ScrollView style={styles.container}>
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={styles.title}>Selecione uma Data</Text>
-        <Text style={styles.monthTitle}>{formatMonth(currentMonth)}</Text>
+    <StyledSafeAreaView className="flex-1 bg-black">
+      <StyledScrollView className="p-5">
+        <StyledText className="text-white text-2xl font-bold mb-6">Select Date & Time</StyledText>
 
-        <FlatList
-          data={daysInMonth.filter(date => date)}
-          keyExtractor={(item) => item.toISOString()}
-          renderItem={({ item: date }) => (
-            <TouchableOpacity
-              style={[
-                styles.dateItem,
-                isToday(date) && styles.today,
-                selectedDate && selectedDate.toDateString() === date.toDateString() && styles.selectedDate,
-                isPast(date) && styles.pastDate,
-              ]}
-              onPress={() => !isPast(date) && handleDateSelect(date)}
-              disabled={isPast(date)}
+        {/* --- Weekday Selector --- */}
+        <StyledScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
+          {week.map(day => (
+            <StyledTouchableOpacity 
+              key={day.format('YYYY-MM-DD')}
+              className={`py-3 px-4 rounded-lg mr-3 ${selectedDate.isSame(day, 'day') ? 'bg-green-500' : 'bg-gray-800'}`}
+              onPress={() => setSelectedDate(day)}
             >
-              <Text style={[
-                styles.dateText,
-                isToday(date) && styles.todayText,
-                selectedDate && selectedDate.toDateString() === date.toDateString() && styles.selectedText,
-                isPast(date) && styles.pastText,
-              ]}>
-                {date.toLocaleDateString('pt-BR', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                })}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
+              <StyledText className="text-white text-center font-bold">{day.format('ddd').toUpperCase()}</StyledText>
+              <StyledText className="text-white text-2xl font-bold">{day.format('DD')}</StyledText>
+            </StyledTouchableOpacity>
+          ))}
+        </StyledScrollView>
 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => {
-            Animated.sequence([
-              Animated.timing(fadeAnim, { toValue: 0.5, duration: 200, useNativeDriver: true }),
-              Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-            ]).start(() => navigation.goBack());
-          }}
-        >
-          <Text style={styles.backButtonText}>Voltar</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    </ScrollView>
+        {/* --- Time Slot Selector --- */}
+        <StyledView className="flex-row flex-wrap justify-between mb-8">
+          {TIME_SLOTS.map(time => (
+            <StyledTouchableOpacity 
+              key={time}
+              className={`w-[32%] py-4 rounded-lg mb-2 ${selectedTime === time ? 'bg-green-500' : 'bg-gray-800'}`}
+              onPress={() => setSelectedTime(time)}
+            >
+              <StyledText className="text-white text-center font-bold">{time}</StyledText>
+            </StyledTouchableOpacity>
+          ))}
+        </StyledView>
+        
+        {/* --- Payment Method --- */}
+        <StyledText className="text-white text-xl font-bold mb-4">Payment Method</StyledText>
+        <StyledView className="bg-gray-800 rounded-lg p-4">
+            <StyledView className="flex-row justify-between items-center">
+                <StyledText className="text-white font-bold">Loyalty Card</StyledText>
+                <StyledText className="text-green-500 font-bold">+$45.00</StyledText>
+            </StyledView>
+            <StyledText className="text-gray-400">App Fee: $1.00</StyledText>
+        </StyledView>
+
+      </StyledScrollView>
+    </StyledSafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#000',
-  },
-  title: {
-    fontSize: 25,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-    color: '#FFD700',
-  },
-  monthTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#FFD700',
-  },
-  dateItem: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    marginVertical: 5,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.9,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  today: {
-    backgroundColor: '#FFA500',
-  },
-  selectedDate: {
-    backgroundColor: '#FF4500',
-  },
-  pastDate: {
-    backgroundColor: '#666',
-  },
-  dateText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  todayText: {
-    color: '#FFF',
-  },
-  selectedText: {
-    color: '#FFF',
-  },
-  pastText: {
-    color: '#999',
-  },
-  backButton: {
-    marginTop: 20,
-    backgroundColor: '#333',
-    padding: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});

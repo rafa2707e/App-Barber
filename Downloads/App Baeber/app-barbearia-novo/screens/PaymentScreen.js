@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, Animated, SafeAreaView } from 'react-native';
 
 export default function PaymentScreen({ navigation }) {
   const [amount, setAmount] = useState('');
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 1000,
+      duration: 800,
       useNativeDriver: true,
     }).start();
   }, []);
@@ -18,18 +18,13 @@ export default function PaymentScreen({ navigation }) {
       Alert.alert('Erro', 'Digite um valor');
       return;
     }
-    Animated.sequence([
-      Animated.timing(fadeAnim, { toValue: 0.5, duration: 200, useNativeDriver: true }),
-      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-    ]).start(() => {
-      Alert.alert('Sucesso', `Pagamento de R$ ${amount} realizado com ${method} com sucesso!`);
-      navigation.goBack();
-    });
+    Alert.alert('Sucesso', `Pagamento de R$ ${amount} realizado com ${method} com sucesso!`);
+    navigation.goBack();
   };
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={{ opacity: fadeAnim }}>
+    <SafeAreaView style={styles.container}>
+      <Animated.View style={{ opacity: fadeAnim, flex: 1, justifyContent: 'center' }}>
         <Text style={styles.title}>Pagamento</Text>
         <TextInput
           placeholder="Valor (R$)"
@@ -37,16 +32,19 @@ export default function PaymentScreen({ navigation }) {
           value={amount}
           onChangeText={setAmount}
           keyboardType="numeric"
-          placeholderTextColor="#FFD700"
+          placeholderTextColor="#999"
         />
-        <TouchableOpacity style={styles.button} onPress={() => handlePayment('Cartão')}>
+        <TouchableOpacity style={[styles.button, {backgroundColor: '#D62828'}]} onPress={() => handlePayment('Cartão')} activeOpacity={0.8}>
           <Text style={styles.buttonText}>Pagar com Cartão</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={() => handlePayment('PIX')}>
+        <TouchableOpacity style={[styles.button, {backgroundColor: '#007BFF'}]} onPress={() => handlePayment('PIX')} activeOpacity={0.8}>
           <Text style={styles.buttonText}>Pagar com PIX</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+          <Text style={styles.backButtonText}>Voltar</Text>
+        </TouchableOpacity>
       </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -54,36 +52,47 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#000',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
   },
   title: {
-    fontSize: 25,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 30,
     textAlign: 'center',
-    color: '#FFD700',
+    color: '#212529',
   },
   input: {
     width: '100%',
     height: 50,
-    borderColor: '#FFD700',
-    borderWidth: 1,
+    backgroundColor: '#F8F9FA',
     borderRadius: 12,
     paddingHorizontal: 15,
     marginBottom: 15,
-    backgroundColor: '#222',
-    color: '#FFD700',
+    color: '#212529',
+    borderWidth: 1,
+    borderColor: '#CED4DA',
   },
   button: {
-    backgroundColor: '#FFD700',
     padding: 15,
     borderRadius: 12,
     marginBottom: 15,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#000',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    backgroundColor: '#6C757D',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },

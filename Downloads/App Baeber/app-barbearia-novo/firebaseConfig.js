@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 // Substitua pelos valores do seu projeto Firebase
 const firebaseConfig = {
@@ -23,6 +24,8 @@ const firebaseConfig = {
 //    "facebookScheme": "fbYOUR_FACEBOOK_APP_ID"
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
 
 export { auth, GoogleAuthProvider, FacebookAuthProvider };

@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, Animated, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, Animated, SafeAreaView } from 'react-native';
 
 export default function TimeSelectionScreen({ navigation, route }) {
   const { selectedDate } = route.params || {};
   const [availableTimes, setAvailableTimes] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
-  const [paymentChoiceVisible, setPaymentChoiceVisible] = useState(false);
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 1000,
+      duration: 800,
       useNativeDriver: true,
     }).start();
 
@@ -29,37 +28,7 @@ export default function TimeSelectionScreen({ navigation, route }) {
       Alert.alert('Erro', 'Selecione um horário');
       return;
     }
-    setPaymentChoiceVisible(true);
-  };
-
-  const handlePayPIX = () => {
-    setPaymentChoiceVisible(false);
-    const appointment = {
-      barber: 'Barbeiro Principal',
-      date: selectedDate.toISOString().split('T')[0],
-      time: selectedTime,
-      user: 'user@example.com',
-      payment: 'pix',
-    };
-    Alert.alert('Sucesso', `Agendamento confirmado. Pagamento via PIX.`);
-    navigation.navigate('Home');
-  };
-
-  const handlePayCard = () => {
-    setPaymentChoiceVisible(false);
-    const appointment = {
-      barber: 'Barbeiro Principal',
-      date: selectedDate.toISOString().split('T')[0],
-      time: selectedTime,
-      user: 'user@example.com',
-      payment: 'card',
-    };
-    Alert.alert('Sucesso', `Agendamento confirmado. Pagamento com cartão.`);
-    navigation.navigate('Home');
-  };
-
-  const handleClosePaymentChoice = () => {
-    setPaymentChoiceVisible(false);
+    navigation.navigate('ServiceSelection', { selectedDate, selectedTime });
   };
 
   const formatDate = (date) => {
@@ -72,68 +41,37 @@ export default function TimeSelectionScreen({ navigation, route }) {
   };
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={{ opacity: fadeAnim }}>
+    <SafeAreaView style={styles.container}>
+      <Animated.View style={{ opacity: fadeAnim, flex: 1 }}>
         <Text style={styles.title}>Selecionar Horário</Text>
         <Text style={styles.subtitle}>Data: {selectedDate ? formatDate(selectedDate) : 'Nenhuma data selecionada'}</Text>
 
         <FlatList
           data={availableTimes}
           keyExtractor={(item) => item}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.timeItem, selectedTime === item && styles.selected]}
-              onPress={() => {
-                Animated.sequence([
-                  Animated.timing(fadeAnim, { toValue: 0.8, duration: 100, useNativeDriver: true }),
-                  Animated.timing(fadeAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
-                ]).start(() => handleSelect(item));
-              }}
+              onPress={() => handleSelect(item)}
+              activeOpacity={0.8}
             >
               <Text style={[styles.timeText, selectedTime === item && styles.selectedText]}>{item}</Text>
             </TouchableOpacity>
           )}
         />
 
-        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-          <Text style={styles.confirmButtonText}>Confirmar Agendamento</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm} activeOpacity={0.8}>
+            <Text style={styles.confirmButtonText}>Confirmar Horário</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => {
-            Animated.sequence([
-              Animated.timing(fadeAnim, { toValue: 0.5, duration: 200, useNativeDriver: true }),
-              Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-            ]).start(() => navigation.goBack());
-          }}
-        >
-          <Text style={styles.backButtonText}>Voltar</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.8}>
+            <Text style={styles.backButtonText}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
-
-      <Modal
-        transparent={true}
-        animationType="fade"
-        visible={paymentChoiceVisible}
-        onRequestClose={handleClosePaymentChoice}
-      >
-        <View style={styles.overlay}>
-      <View style={styles.modalContainer}>
-        <Text style={styles.modalTitle}>Como deseja pagar?</Text>
-        <TouchableOpacity style={styles.modalButton} onPress={handlePayPIX}>
-          <Text style={styles.modalButtonText}>Pagar com PIX</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.modalButton} onPress={handlePayCard}>
-          <Text style={styles.modalButtonText}>Pagar com Cartão</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.cancelButton} onPress={handleClosePaymentChoice}>
-          <Text style={styles.cancelButtonText}>Cancelar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-      </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -141,103 +79,66 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#000',
+    backgroundColor: '#FFFFFF',
   },
   title: {
-    fontSize: 25,
+    fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 10,
     textAlign: 'center',
-    color: '#FFD700',
+    color: '#212529',
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 20,
-    color: '#FFF',
+    marginBottom: 30,
+    color: '#6C757D',
     textAlign: 'center',
   },
   timeItem: {
-    backgroundColor: '#333',
-    padding: 15,
+    backgroundColor: '#F8F9FA',
+    padding: 20,
     borderRadius: 12,
     marginBottom: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CED4DA',
   },
   selected: {
-    backgroundColor: '#FFD700',
+    backgroundColor: '#007BFF',
+    borderColor: '#007BFF',
   },
   timeText: {
-    color: '#FFF',
-    fontSize: 16,
+    color: '#212529',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   selectedText: {
-    color: '#000',
+    color: '#FFFFFF',
+  },
+  buttonContainer: {
+    marginTop: 'auto',
+    paddingTop: 20,
   },
   confirmButton: {
-    backgroundColor: '#FFD700',
+    backgroundColor: '#D62828',
     padding: 15,
     borderRadius: 12,
-    marginTop: 20,
     alignItems: 'center',
+    marginBottom: 10,
   },
   confirmButtonText: {
-    color: '#000',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
   backButton: {
-    marginTop: 10,
-    backgroundColor: '#333',
+    backgroundColor: '#6C757D',
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#000',
-    padding: 20,
-    borderRadius: 12,
-    width: '80%',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 20,
-  },
-  modalButton: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    width: '100%',
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: '#333',
-    padding: 15,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#FFD700',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },

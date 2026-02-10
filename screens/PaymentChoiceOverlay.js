@@ -28,49 +28,12 @@ export default function PaymentChoiceOverlay({ visible, onClose, onPayNow, onPay
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  container: { 
+    backgroundColor: '#111', padding: 30, borderRadius: 20, width: '85%', 
+    alignItems: 'center', borderWidth: 1, borderColor: '#4B5320' 
   },
-  container: {
-    backgroundColor: '#000',
-    padding: 30,
-    borderRadius: 20,
-    width: '80%',
-    alignItems: 'center',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: '#FFD700',
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    marginBottom: 15,
-    width: '100%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    marginTop: 10,
-  },
-  cancelButtonText: {
-    color: '#FFD700',
-    fontSize: 16,
-  },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#FFF', marginBottom: 20 },
+  button: { backgroundColor: '#4B5320', width: '100%', padding: 15, borderRadius: 10, marginBottom: 10 },
+  buttonText: { color: '#FFF', textAlign: 'center', fontWeight: 'bold' },
+  cancelButtonText: { color: '#6B8E23' }
 });

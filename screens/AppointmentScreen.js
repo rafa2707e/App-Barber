@@ -1,188 +1,99 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
+
+// Configuração do calendário para Português
+LocaleConfig.locales['pt-br'] = {
+  monthNames: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
+  monthNamesShort: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+  dayNames: ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'],
+  dayNamesShort: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
+  today: 'Hoje'
+};
+LocaleConfig.defaultLocale = 'pt-br';
 
 export default function AppointmentScreen({ navigation }) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(null);
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    Animated.sequence([
-      Animated.timing(fadeAnim, { toValue: 0.5, duration: 200, useNativeDriver: true }),
-      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-    ]).start(() => {
-      navigation.navigate('TimeSelection', { selectedDate: date });
-    });
-  };
-
-  const getDaysInMonth = (date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const days = [];
-
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < firstDay.getDay(); i++) {
-      days.push(null);
-    }
-
-    // Add days of the month
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-      days.push(new Date(year, month, day));
-    }
-
-    return days;
-  };
-
-  const formatMonth = (date) => {
-    return date.toLocaleDateString('pt-BR', {
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-
-  const isToday = (date) => {
-    const today = new Date();
-    return date.getDate() === today.getDate() &&
-           date.getMonth() === today.getMonth() &&
-           date.getFullYear() === today.getFullYear();
-  };
-
-  const isPast = (date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date < today;
-  };
-
-  const daysInMonth = getDaysInMonth(currentMonth);
+  const [selected, setSelected] = useState('');
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
 
   return (
-    <ScrollView style={styles.container}>
-      <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={styles.title}>Selecione uma Data</Text>
-        <Text style={styles.monthTitle}>{formatMonth(currentMonth)}</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Agendamento Tático</Text>
+      <Text style={styles.subtitle}>Selecione o dia da missão</Text>
 
-        <FlatList
-          data={daysInMonth.filter(date => date)}
-          keyExtractor={(item) => item.toISOString()}
-          renderItem={({ item: date }) => (
-            <TouchableOpacity
-              style={[
-                styles.dateItem,
-                isToday(date) && styles.today,
-                selectedDate && selectedDate.toDateString() === date.toDateString() && styles.selectedDate,
-                isPast(date) && styles.pastDate,
-              ]}
-              onPress={() => !isPast(date) && handleDateSelect(date)}
-              disabled={isPast(date)}
-            >
-              <Text style={[
-                styles.dateText,
-                isToday(date) && styles.todayText,
-                selectedDate && selectedDate.toDateString() === date.toDateString() && styles.selectedText,
-                isPast(date) && styles.pastText,
-              ]}>
-                {date.toLocaleDateString('pt-BR', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                })}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => {
-            Animated.sequence([
-              Animated.timing(fadeAnim, { toValue: 0.5, duration: 200, useNativeDriver: true }),
-              Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-            ]).start(() => navigation.goBack());
+      <View style={styles.calendarWrapper}>
+        <Calendar
+          onDayPress={day => {
+            setSelected(day.dateString);
           }}
-        >
-          <Text style={styles.backButtonText}>Voltar</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    </ScrollView>
+          markedDates={{
+            [selected]: { selected: true, disableTouchEvent: true, selectedDotColor: 'orange' }
+          }}
+          theme={{
+            backgroundColor: '#1A1A1A',
+            calendarBackground: '#1A1A1A',
+            textSectionTitleColor: '#6B8E23',
+            selectedDayBackgroundColor: '#4B5320',
+            selectedDayTextColor: '#ffffff',
+            todayTextColor: '#6B8E23',
+            dayTextColor: '#ffffff',
+            textDisabledColor: '#444',
+            dotColor: '#6B8E23',
+            monthTextColor: '#6B8E23',
+            indicatorColor: '#6B8E23',
+            arrowColor: '#6B8E23',
+            textDayFontWeight: '300',
+            textMonthFontWeight: 'bold',
+            textDayHeaderFontWeight: '300',
+            textDayFontSize: 16,
+            textMonthFontSize: 18,
+            textDayHeaderFontSize: 14
+          }}
+        />
+      </View>
+
+      {selected ? (
+        <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
+          <Text style={styles.infoText}>Dia selecionado: {selected.split('-').reverse().join('/')}</Text>
+          <TouchableOpacity 
+            style={styles.nextButton}
+            onPress={() => navigation.navigate('TimeSelection', { selectedDate: selected })}
+          >
+            <Text style={styles.nextButtonText}>Ver Horários Disponíveis</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      ) : null}
+
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <Text style={styles.backButtonText}>Voltar</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#000',
+  container: { flex: 1, backgroundColor: '#000', padding: 20 },
+  title: { fontSize: 26, fontWeight: 'bold', color: '#6B8E23', textAlign: 'center', marginTop: 40 },
+  subtitle: { color: '#888', textAlign: 'center', marginBottom: 30 },
+  calendarWrapper: { 
+    borderRadius: 15, 
+    overflow: 'hidden', 
+    borderWidth: 1, 
+    borderColor: '#4B5320',
+    backgroundColor: '#1A1A1A',
+    elevation: 10
   },
-  title: {
-    fontSize: 25,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-    color: '#FFD700',
-  },
-  monthTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#FFD700',
-  },
-  dateItem: {
-    backgroundColor: '#FFD700',
-    padding: 15,
-    marginVertical: 5,
+  footer: { marginTop: 30, alignItems: 'center' },
+  infoText: { color: '#FFF', marginBottom: 15, fontSize: 16 },
+  nextButton: { 
+    backgroundColor: '#4B5320', 
+    paddingVertical: 15, 
+    paddingHorizontal: 40, 
     borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.9,
-    shadowRadius: 3,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#6B8E23'
   },
-  today: {
-    backgroundColor: '#FFA500',
-  },
-  selectedDate: {
-    backgroundColor: '#FF4500',
-  },
-  pastDate: {
-    backgroundColor: '#666',
-  },
-  dateText: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  todayText: {
-    color: '#FFF',
-  },
-  selectedText: {
-    color: '#FFF',
-  },
-  pastText: {
-    color: '#999',
-  },
-  backButton: {
-    marginTop: 20,
-    backgroundColor: '#333',
-    padding: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  nextButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  backButton: { marginTop: 20, alignSelf: 'center' },
+  backButtonText: { color: '#6B8E23', fontWeight: 'bold' }
 });

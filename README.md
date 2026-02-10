@@ -49,7 +49,7 @@ O ecossistema do projeto foi construído com foco em performance e escalabilidad
 * **Linguagem:** **JavaScript (ES6+)**.
 * **Backend:** [Node.js](https://nodejs.org/) com framework Express.
 * **Banco de Dados:** [MongoDB](https://www.mongodb.com/) (NoSQL) para alta disponibilidade de dados.
-* **IA:** Integração com [especifique aqui, ex: OpenAI API ou Gemini API].
+* **IA:** Integração com Gemini API
 
 ---
 

@@ -20,10 +20,10 @@ O **App Barber** é uma solução completa para gestão de barbearias e agendame
 
 Este projeto foi construído com as seguintes tecnologias:
 
-* **Mobile:** [Ex: React Native / Flutter]
-* **Backend:** [Ex: Node.js / Python]
-* **Banco de Dados:** [Ex: PostgreSQL / MongoDB]
-* **Estilização:** [Ex: Styled Components / Tailwind]
+* **Mobile:** [React Native / Expo GO]
+* **Backend:** [Node.js / JavaScript]
+* **Banco de Dados:** [MongoDB]
+* **Estilização:** [Tailwind]
 
 ---
 

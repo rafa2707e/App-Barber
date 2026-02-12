@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import PaymentScreen from './PaymentScreen';
+
 
 export default function TimeSelectionScreen({ navigation }) {
   const [selectedTime, setSelectedTime] = useState(null);
@@ -24,7 +26,7 @@ export default function TimeSelectionScreen({ navigation }) {
       {selectedTime && (
         <TouchableOpacity 
           style={styles.confirmButton} 
-          onPress={() => navigation.navigate('Payment')}
+          onPress={() => navigation.navigate('PaymentScreen')}
         >
           <Text style={styles.confirmText}>Confirmar para {selectedTime}</Text>
         </TouchableOpacity>

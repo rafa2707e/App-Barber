@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-// Importe TODAS as suas telas
+// Importação das suas telas
 import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import AppointmentScreen from './screens/AppointmentScreen';
@@ -14,44 +13,47 @@ import MyAppointmentsScreen from './screens/MyAppointmentsScreen';
 import BarberAgendaScreen from './screens/BarberAgendaScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import BarberSelectionScreen from './screens/BarberSelectionScreen'; // Certifique-se de que o nome do arquivo está correto
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// --- COMPONENTE DO MENU INFERIOR (TABS) ---
+// --- CONFIGURAÇÃO DO MENU DE ABAS (TABS) ---
+// Escondemos o estilo padrão para usar o seu design customizado na HomeScreen
 function TabNavigator({ route }) {
   const user = route.params?.user;
-  const isBarber = user?.role === 'barber';
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { backgroundColor: '#000', borderTopColor: '#4B5320', borderTopWidth: 2, height: 60, paddingBottom: 5 },
-        tabBarActiveTintColor: '#6B8E23',
-        tabBarInactiveTintColor: '#555',
+        tabBarStyle: { display: 'none' }, // Isso remove o menu antigo/padrão
       }}
     >
       <Tab.Screen 
-        name="HomeTab" 
+        name="Home" 
         component={HomeScreen} 
-        initialParams={{ user }}
-        options={{ tabBarIcon: ({ color }) => <Icon name="home" size={26} color={color} />, tabBarLabel: 'Início' }}
+        initialParams={{ user }} 
       />
       <Tab.Screen 
-        name="AgendaTab" 
-        component={isBarber ? BarberAgendaScreen : MyAppointmentsScreen} 
-        options={{ tabBarIcon: ({ color }) => <Icon name="calendar-clock" size={26} color={color} />, tabBarLabel: isBarber ? 'Agenda' : 'Meus Cortes' }}
+        name="MyAppointments" 
+        component={MyAppointmentsScreen} 
+        initialParams={{ user }} 
+      />
+      <Tab.Screen 
+        name="BarberAgenda" 
+        component={BarberAgendaScreen} 
+        initialParams={{ user }} 
       />
       <Tab.Screen 
         name="Profile" 
         component={ProfileScreen} 
-        options={{ tabBarIcon: ({ color }) => <Icon name="account" size={26} color={color} />, tabBarLabel: 'Perfil' }}
+        initialParams={{ user }} 
       />
       <Tab.Screen 
         name="Settings" 
         component={SettingsScreen} 
-        options={{ tabBarIcon: ({ color }) => <Icon name="cog" size={26} color={color} />, tabBarLabel: 'Ajustes' }}
+        initialParams={{ user }} 
       />
     </Tab.Navigator>
   );
@@ -62,13 +64,14 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* 1. Tela de Login aparece primeiro */}
+        {/* 1. Login inicial */}
         <Stack.Screen name="Login" component={LoginScreen} />
         
-        {/* 2. O Menu de Abas (que contém a Home) */}
+        {/* 2. Menu Principal (Abas) */}
         <Stack.Screen name="MainTabs" component={TabNavigator} />
 
-        {/* 3. Telas "Escondidas" que não ficam no menu mas precisam ser acessadas */}
+        {/* 3. Telas de Fluxo de Agendamento e Outros */}
+        <Stack.Screen name="BarberSelection" component={BarberSelectionScreen} />
         <Stack.Screen name="Appointment" component={AppointmentScreen} />
         <Stack.Screen name="TimeSelection" component={TimeSelectionScreen} />
         <Stack.Screen name="PhotoUpload" component={PhotoUploadScreen} />

@@ -71,8 +71,8 @@ export default function App() {
   const [base64, setBase64] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState(null);
-  // ✅ FIX: API Key agora é inserida pelo utilizador em runtime, não hardcoded
-  const [apiKey, setApiKey]   = useState('AIzaSyAJicfZyNdOjUC2ylVCgmZ7GSP73w51T-4');
+  // API do Gemini para fazer a chamada 
+  const [apiKey, setApiKey]   = useState('AIzaSyDkG2W_u-JPJdQ_pKrwpugHancBmNRck08');
   const [showKeyInput, setShowKeyInput] = useState(false);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function App() {
         if (status !== 'granted') {
           Alert.alert(
             "Permissão Necessária", 
-            "O acesso à galeria é fundamental para analisar a fisionomia do cliente."
+            "O acesso à galeria é necessario para fazer a analise facil"
           );
         }
       }
@@ -108,9 +108,9 @@ export default function App() {
       Alert.alert("Erro", "Não foi possível carregar a imagem selecionada.");
     }
   };
-
+// Chamada da API do Gemini pafa fazer a analise 
   const analisarVisagismo = async () => {
-    // ✅ FIX: Validação explícita da API Key antes de qualquer chamada
+    
     if (!apiKey.trim()) {
       Alert.alert(
         "Chave de API em Falta",
@@ -312,7 +312,7 @@ Exemplo: "mid-fade ou corte americano: equilibra rosto oval, suaviza a mandíbul
                 onPress={() => Alert.alert("Agenda", "Função de agendamento em desenvolvimento.")}
               >
                 <Calendar color="#000" size={18} />
-                <Text style={styles.ctaButtonText}>RESERVAR HORÁRIO</Text>
+                <Text style={styles.ctaButtonText}>AGENDAR HORÁRIO</Text>
               </TouchableOpacity>
             </View>
           )}

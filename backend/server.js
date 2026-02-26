@@ -16,7 +16,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/barbearia
   useUnifiedTopology: true,
 })
 .then(() => console.log('Conectado ao MongoDB'))
-.catch(err => console.error('Erro ao conectar ao MongoDB:', err));
+.catch(err => console.error('Erro ao chamara o Banco de dados:', err));
 
 // Modelo de Agendamento
 const appointmentSchema = new mongoose.Schema({

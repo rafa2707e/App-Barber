@@ -57,7 +57,7 @@ export default function HomeScreen({ navigation, route }) {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcomeText}>OPERADOR ATIVO</Text>
-            <Text style={styles.userName}>{user?.name?.toUpperCase() || 'RECRUTA'}</Text>
+            <Text style={styles.userName}>{user?.name?.toUpperCase() || 'BOA CRIA'}</Text>
           </View>
           <View style={styles.avatarGlow}>
             <Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase() || 'S'}</Text>
@@ -96,8 +96,8 @@ export default function HomeScreen({ navigation, route }) {
 />
 
 <MenuCard 
-  title="RECOMENDAÇÃO COM IA"
-  description="Análise de perfil facial."
+  title="ANALIS COM IA"
+  description="Análise de perfil facial e veja a melhor recomendação de corte para você. "
   // USE EXATAMENTE ASSIM:
   imageUrl={require('../assets/ia.png')} 
   onPress={() => navigation.navigate('PhotoUpload')}
@@ -105,12 +105,12 @@ export default function HomeScreen({ navigation, route }) {
 
 <MenuCard 
   title="HISTÓRICO DE CORTE"
-  description="Relatório de atendimentos."
+  description="Cortes já feitos "
   imageUrl={require('../assets/historico.png')}
   onPress={() => navigation.navigate('MyAppointments')}
 />
         <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.replace('Login')}>
-          <Text style={styles.logoutTxt}>ENCERRAR SESSÃO</Text>
+          <Text style={styles.logoutTxt}>SAIR</Text>
         </TouchableOpacity>
       </ScrollView>
 

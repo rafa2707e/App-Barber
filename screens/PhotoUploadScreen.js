@@ -72,7 +72,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState(null);
   // ✅ FIX: API Key agora é inserida pelo utilizador em runtime, não hardcoded
-  const [apiKey, setApiKey]   = useState('AIzaSyAJicfZyNdOjUC2ylVCgmZ7GSP73w51T-4');
+  const [apiKey, setApiKey]   = useState('Your API Key');
   const [showKeyInput, setShowKeyInput] = useState(false);
 
   useEffect(() => {

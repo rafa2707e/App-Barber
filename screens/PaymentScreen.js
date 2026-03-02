@@ -1,410 +1,338 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Alert,
-  Animated, ScrollView, Dimensions, Clipboard
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
+  Animated, Clipboard, Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
-
-// Serviços disponíveis
 const SERVICES = [
-  { id: '1', name: 'Corte Simples',    price: 35 },
-  { id: '2', name: 'Corte + Barba',    price: 55 },
-  { id: '3', name: 'Degradê',          price: 45 },
-  { id: '4', name: 'Visagismo Completo', price: 80 },
-  { id: '5', name: 'Barba',            price: 25 },
+  { name: 'Corte Simples',      price: 35, icon: '✂️', duration: '30min', color: '#1a2210' },
+  { name: 'Corte + Barba',      price: 55, icon: '🪒', duration: '50min', color: '#1a1810' },
+  { name: 'Degradê',            price: 45, icon: '💈', duration: '40min', color: '#101a1a' },
+  { name: 'Visagismo Completo', price: 80, icon: '👑', duration: '75min', color: '#1a1020' },
+  { name: 'Barba',              price: 25, icon: '🧔', duration: '25min', color: '#101510' },
 ];
 
-// Chave PIX fictícia (substitua pela real em produção)
-const PIX_KEY = '00020126580014br.gov.bcb.pix0136estudio-hair@pix.com.br5204000053039865802BR5925STUDIO HAIR BARBEARIA6009SAO PAULO62140510StudioHair6304ABCD';
+const PIX_KEY = 'estudio-hair@pix.com.br';
 
 export default function PaymentScreen({ navigation, route }) {
-  const { selectedTime, selectedDate, barber } = route?.params || {};
+  const { selectedDate, selectedTime, barber, service: preService, price: prePrice } = route?.params || {};
 
-  const [step, setStep] = useState('service');   // 'service' | 'method' | 'pix' | 'card' | 'success'
-  const [selectedService, setSelectedService] = useState(null);
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCVV, setCardCVV] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [step, setStep]           = useState(preService ? 'method' : 'service');
+  const [selectedService, setSelectedService] = useState(
+    preService ? { name: preService, price: prePrice } : null
+  );
+  const [payMethod, setPayMethod] = useState(null);
+  const [success, setSuccess]     = useState(false);
+  const [cardNum, setCardNum]     = useState('');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.5)).current;
 
-  const fadeTransition = (callback) => {
-    Animated.sequence([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-    ]).start(() => {
-      callback();
-      Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
-    });
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, [step]);
+
+  const formattedDate = selectedDate
+    ? selectedDate.split('-').reverse().join('/')
+    : '—';
+
+  const handleSuccess = () => {
+    setSuccess(true);
+    Animated.parallel([
+      Animated.spring(scaleAnim, { toValue: 1, tension: 50, friction: 6, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+    ]).start();
   };
 
-  const handleConfirmPayment = (method) => {
-    setProcessing(true);
-    setTimeout(() => {
-      setProcessing(false);
-      fadeTransition(() => setStep('success'));
-    }, 2000);
-  };
-
-  const copyPix = () => {
-    Clipboard.setString(PIX_KEY);
-    Alert.alert('Copiado!', 'Chave PIX copiada para a área de transferência.');
-  };
-
-  // ─── ECRÃ: Selecionar Serviço ────────────────────────────────────────────
-  const renderServiceStep = () => (
-    <Animated.View style={{ opacity: fadeAnim }}>
-      <Text style={styles.stepLabel}>PASSO 1 DE 2</Text>
-      <Text style={styles.title}>Qual serviço?</Text>
-      <Text style={styles.subtitle}>Selecione o que vai fazer hoje</Text>
-
-      {SERVICES.map(s => (
-        <TouchableOpacity
-          key={s.id}
-          style={[styles.serviceCard, selectedService?.id === s.id && styles.serviceCardSelected]}
-          onPress={() => setSelectedService(s)}
-        >
-          <Text style={styles.serviceName}>{s.name}</Text>
-          <View style={[styles.priceTag, selectedService?.id === s.id && styles.priceTagSelected]}>
-            <Text style={styles.priceText}>R$ {s.price}</Text>
+  // ── TELA DE SUCESSO ─────────────────────────────────────────────────────────
+  if (success) {
+    return (
+      <View style={s.container}>
+        <LinearGradient colors={['#000', '#0a0f05', '#000']} style={StyleSheet.absoluteFill} />
+        <Animated.View style={[s.successContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+          <View style={s.successCircle}>
+            <LinearGradient colors={['#4B5320', '#2d3314']} style={s.successCircleInner}>
+              <Text style={s.successIcon}>✓</Text>
+            </LinearGradient>
           </View>
+          <Text style={s.successTitle}>Agendamento Confirmado!</Text>
+          <Text style={s.successSubtitle}>Até breve na barbearia 💈</Text>
+
+          <View style={s.receiptCard}>
+            <Text style={s.receiptTitle}>🧾  COMPROVANTE</Text>
+            {[
+              { label: 'Serviço',    value: selectedService?.name },
+              { label: 'Barbeiro',   value: barber?.name || 'João Silva' },
+              { label: 'Data',       value: formattedDate },
+              { label: 'Horário',    value: selectedTime || '—' },
+              { label: 'Pagamento',  value: payMethod },
+              { label: 'Total',      value: `R$ ${selectedService?.price},00` },
+              { label: 'Status',     value: '✅ CONFIRMADO' },
+            ].map(({ label, value }) => (
+              <View key={label} style={s.receiptRow}>
+                <Text style={s.receiptLabel}>{label}</Text>
+                <Text style={[s.receiptValue, label === 'Total' && { color: '#6B8E23', fontWeight: 'bold' }]}>
+                  {value}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity style={s.homeBtn} onPress={() => navigation.replace('ClientTabs')}>
+            <LinearGradient colors={['#4B5320', '#2d3314']} style={s.gradBtn}>
+              <Text style={s.homeBtnText}>VOLTAR AO INÍCIO</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
+  }
+
+  // ── PASSO 1: ESCOLHER SERVIÇO ───────────────────────────────────────────────
+  if (step === 'service') {
+    return (
+      <View style={s.container}>
+        <LinearGradient colors={['#000', '#0d0f08', '#000']} style={StyleSheet.absoluteFill} />
+        <ScrollView contentContainerStyle={s.scroll}>
+          <Text style={s.badge}>PASSO 1 DE 2</Text>
+          <Text style={s.title}>Qual serviço?</Text>
+          <Text style={s.subtitle}>Selecione o que vai fazer hoje</Text>
+
+          {SERVICES.map(svc => {
+            const sel = selectedService?.name === svc.name;
+            return (
+              <TouchableOpacity
+                key={svc.name}
+                style={[s.serviceCard, sel && s.serviceCardSel]}
+                onPress={() => setSelectedService(svc)}
+              >
+                {sel && <LinearGradient colors={['#1a2210','#111']} style={[StyleSheet.absoluteFill,{borderRadius:16}]} />}
+                <View style={[s.serviceIconBox, { backgroundColor: svc.color }]}>
+                  <Text style={s.serviceIcon}>{svc.icon}</Text>
+                </View>
+                <View style={s.serviceInfo}>
+                  <Text style={[s.serviceName, sel && { color: '#FFF' }]}>{svc.name}</Text>
+                  <Text style={s.serviceDuration}>⏱ {svc.duration}</Text>
+                </View>
+                <View style={[s.servicePriceBadge, sel && s.servicePriceBadgeSel]}>
+                  <Text style={[s.servicePrice, sel && { color: '#FFF' }]}>R$ {svc.price}</Text>
+                </View>
+                {sel && <View style={s.serviceCheckDot}><Text style={{color:'#6B8E23',fontSize:12}}>✓</Text></View>}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <View style={s.fixedFooter}>
+          <TouchableOpacity
+            style={[s.nextBtn, !selectedService && s.nextBtnDisabled]}
+            disabled={!selectedService}
+            onPress={() => setStep('method')}
+          >
+            <LinearGradient colors={selectedService ? ['#4B5320','#2d3314'] : ['#1a1a1a','#111']} style={s.gradBtn}>
+              <Text style={[s.nextBtnText, !selectedService && { color: '#444' }]}>
+                {selectedService ? `ESCOLHER PAGAMENTO → R$ ${selectedService.price},00` : 'ESCOLHER FORMA DE PAGAMENTO →'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={s.backText}>← Voltar</Text>
         </TouchableOpacity>
-      ))}
-
-      <TouchableOpacity
-        style={[styles.primaryBtn, !selectedService && styles.disabledBtn]}
-        disabled={!selectedService}
-        onPress={() => fadeTransition(() => setStep('method'))}
-      >
-        <LinearGradient colors={['#4B5320', '#2d3314']} style={styles.gradientBtn}>
-          <Text style={styles.primaryBtnText}>ESCOLHER FORMA DE PAGAMENTO →</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-
-  // ─── ECRÃ: Escolher Método ───────────────────────────────────────────────
-  const renderMethodStep = () => (
-    <Animated.View style={{ opacity: fadeAnim }}>
-      <Text style={styles.stepLabel}>PASSO 2 DE 2</Text>
-      <Text style={styles.title}>Como pagar?</Text>
-
-      <View style={styles.summaryBox}>
-        <Text style={styles.summaryLabel}>SERVIÇO</Text>
-        <Text style={styles.summaryValue}>{selectedService?.name}</Text>
-        <View style={styles.summaryDivider} />
-        <Text style={styles.summaryLabel}>TOTAL</Text>
-        <Text style={styles.summaryTotal}>R$ {selectedService?.price},00</Text>
-        {selectedDate && <Text style={styles.summaryMeta}>📅 {selectedDate.split('-').reverse().join('/')}  {selectedTime && `⏰ ${selectedTime}`}</Text>}
-        {barber && <Text style={styles.summaryMeta}>✂️ {barber.name}</Text>}
       </View>
+    );
+  }
 
-      <TouchableOpacity
-        style={styles.methodCard}
-        onPress={() => fadeTransition(() => setStep('pix'))}
-      >
-        <Text style={styles.methodIcon}>⚡</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.methodTitle}>PIX</Text>
-          <Text style={styles.methodSubtitle}>Pagamento instantâneo • Aprovação imediata</Text>
-        </View>
-        <Text style={styles.methodArrow}>›</Text>
-      </TouchableOpacity>
+  // ── PASSO 2: FORMA DE PAGAMENTO ─────────────────────────────────────────────
+  if (step === 'method') {
+    return (
+      <View style={s.container}>
+        <LinearGradient colors={['#000', '#0d0f08', '#000']} style={StyleSheet.absoluteFill} />
+        <ScrollView contentContainerStyle={s.scroll}>
+          <Text style={s.badge}>PASSO 2 DE 2</Text>
+          <Text style={s.title}>Como pagar?</Text>
 
-      <TouchableOpacity
-        style={styles.methodCard}
-        onPress={() => fadeTransition(() => setStep('card'))}
-      >
-        <Text style={styles.methodIcon}>💳</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.methodTitle}>Cartão de Crédito</Text>
-          <Text style={styles.methodSubtitle}>Visa, Mastercard, Elo • Até 3x sem juros</Text>
-        </View>
-        <Text style={styles.methodArrow}>›</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.methodCard, { borderColor: '#333' }]}
-        onPress={() => {
-          Alert.alert('Agendado!', 'Pagamento será feito no local. Seu horário está reservado!', [
-            { text: 'OK', onPress: () => navigation.navigate('Home') }
-          ]);
-        }}
-      >
-        <Text style={styles.methodIcon}>🏪</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.methodTitle}>Pagar no Local</Text>
-          <Text style={styles.methodSubtitle}>Pague na barbearia no dia do corte</Text>
-        </View>
-        <Text style={styles.methodArrow}>›</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.backLink} onPress={() => fadeTransition(() => setStep('service'))}>
-        <Text style={styles.backLinkText}>← Voltar</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-
-  // ─── ECRÃ: PIX ──────────────────────────────────────────────────────────
-  const renderPixStep = () => (
-    <Animated.View style={{ opacity: fadeAnim, alignItems: 'center' }}>
-      <Text style={styles.title}>Pagamento via PIX</Text>
-      <Text style={styles.subtitle}>Escaneie o QR Code ou copie a chave</Text>
-
-      {/* QR Code simulado visualmente */}
-      <View style={styles.qrContainer}>
-        <View style={styles.qrBox}>
-          <Text style={styles.qrPlaceholder}>▣</Text>
-          <Text style={styles.qrLabel}>QR CODE PIX</Text>
-          <Text style={styles.qrAmount}>R$ {selectedService?.price},00</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.pixCopyBtn} onPress={copyPix}>
-        <Text style={styles.pixCopyText}>📋  COPIAR CHAVE PIX</Text>
-      </TouchableOpacity>
-
-      <View style={styles.pixKeyBox}>
-        <Text style={styles.pixKeyLabel}>CHAVE PIX</Text>
-        <Text style={styles.pixKeyValue} numberOfLines={2}>estudio-hair@pix.com.br</Text>
-      </View>
-
-      <View style={styles.pixSteps}>
-        <Text style={styles.pixStepText}>1. Abra o app do seu banco</Text>
-        <Text style={styles.pixStepText}>2. Escaneie o QR Code ou cole a chave</Text>
-        <Text style={styles.pixStepText}>3. Confirme o valor: <Text style={{ color: '#6B8E23', fontWeight: 'bold' }}>R$ {selectedService?.price},00</Text></Text>
-        <Text style={styles.pixStepText}>4. Toque em "Já paguei" abaixo</Text>
-      </View>
-
-      <TouchableOpacity
-        style={styles.primaryBtn}
-        onPress={() => handleConfirmPayment('PIX')}
-        disabled={processing}
-      >
-        <LinearGradient colors={['#4B5320', '#2d3314']} style={styles.gradientBtn}>
-          <Text style={styles.primaryBtnText}>{processing ? 'VERIFICANDO...' : 'JÁ PAGUEI ✓'}</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.backLink} onPress={() => fadeTransition(() => setStep('method'))}>
-        <Text style={styles.backLinkText}>← Voltar</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-
-  // ─── ECRÃ: Cartão ───────────────────────────────────────────────────────
-  const renderCardStep = () => (
-    <Animated.View style={{ opacity: fadeAnim }}>
-      <Text style={styles.title}>Cartão de Crédito</Text>
-
-      {/* Card visual preview */}
-      <LinearGradient colors={['#2d3314', '#4B5320']} style={styles.cardPreview}>
-        <Text style={styles.cardPreviewNumber}>
-          {cardNumber ? cardNumber.replace(/(\d{4})/g, '$1 ').trim() : '•••• •••• •••• ••••'}
-        </Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 15 }}>
-          <Text style={styles.cardPreviewLabel}>{cardName || 'NOME NO CARTÃO'}</Text>
-          <Text style={styles.cardPreviewLabel}>{cardExpiry || 'MM/AA'}</Text>
-        </View>
-      </LinearGradient>
-
-      <View style={styles.cardField}>
-        <Text style={styles.fieldLabel}>NÚMERO DO CARTÃO</Text>
-        <View style={styles.fieldInput}>
-          <Text
-            style={styles.fieldText}
-            onPress={() => {}}
-          >{cardNumber || '                '}</Text>
-        </View>
-      </View>
-
-      {/* Nota: Em produção use TextInput real — simplificado aqui para demo */}
-      <Text style={styles.cardNote}>
-        💡 Integre com Stripe, Mercado Pago ou Adyen para processamento real de cartão.
-      </Text>
-
-      <TouchableOpacity
-        style={styles.primaryBtn}
-        onPress={() => handleConfirmPayment('Cartão')}
-        disabled={processing}
-      >
-        <LinearGradient colors={['#4B5320', '#2d3314']} style={styles.gradientBtn}>
-          <Text style={styles.primaryBtnText}>{processing ? 'PROCESSANDO...' : `PAGAR R$ ${selectedService?.price},00`}</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.backLink} onPress={() => fadeTransition(() => setStep('method'))}>
-        <Text style={styles.backLinkText}>← Voltar</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-
-  // ─── ECRÃ: Sucesso ──────────────────────────────────────────────────────
-  const renderSuccessStep = () => (
-    <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', paddingTop: 40 }}>
-      <View style={styles.successIcon}>
-        <Text style={{ fontSize: 50 }}>✅</Text>
-      </View>
-      <Text style={styles.successTitle}>PAGAMENTO CONFIRMADO!</Text>
-      <Text style={styles.successSubtitle}>O seu corte está agendado.</Text>
-
-      <View style={styles.receiptBox}>
-        <Text style={styles.receiptTitle}>COMPROVANTE</Text>
-        <View style={styles.receiptRow}>
-          <Text style={styles.receiptLabel}>Serviço</Text>
-          <Text style={styles.receiptValue}>{selectedService?.name}</Text>
-        </View>
-        <View style={styles.receiptRow}>
-          <Text style={styles.receiptLabel}>Valor</Text>
-          <Text style={styles.receiptValue}>R$ {selectedService?.price},00</Text>
-        </View>
-        {selectedDate && (
-          <View style={styles.receiptRow}>
-            <Text style={styles.receiptLabel}>Data</Text>
-            <Text style={styles.receiptValue}>{selectedDate.split('-').reverse().join('/')}</Text>
+          {/* Resumo */}
+          <View style={s.summaryBox}>
+            <View style={s.summaryRow}>
+              <Text style={s.summaryLabel2}>SERVIÇO</Text>
+              <Text style={s.summaryVal}>{selectedService?.name}</Text>
+            </View>
+            <View style={[s.summaryRow, { borderTopWidth: 1, borderTopColor: '#1a1a1a', marginTop: 10, paddingTop: 10 }]}>
+              <Text style={s.summaryLabel2}>TOTAL</Text>
+              <Text style={s.totalVal}>R$ {selectedService?.price},00</Text>
+            </View>
+            {selectedDate && (
+              <View style={s.summaryRow}>
+                <Text style={s.summaryLabel2}>DATA / HORA</Text>
+                <Text style={s.summaryVal}>{formattedDate}  {selectedTime || ''}</Text>
+              </View>
+            )}
           </View>
-        )}
-        {selectedTime && (
-          <View style={styles.receiptRow}>
-            <Text style={styles.receiptLabel}>Horário</Text>
-            <Text style={styles.receiptValue}>{selectedTime}</Text>
-          </View>
-        )}
-        {barber && (
-          <View style={styles.receiptRow}>
-            <Text style={styles.receiptLabel}>Barbeiro</Text>
-            <Text style={styles.receiptValue}>{barber.name}</Text>
-          </View>
-        )}
-        <View style={[styles.receiptRow, { borderTopWidth: 1, borderTopColor: '#333', marginTop: 8, paddingTop: 8 }]}>
-          <Text style={[styles.receiptLabel, { color: '#6B8E23', fontWeight: 'bold' }]}>STATUS</Text>
-          <Text style={[styles.receiptValue, { color: '#6B8E23' }]}>✓ PAGO</Text>
-        </View>
+
+          {/* Métodos */}
+          {[
+            { id: 'PIX',    icon: '⚡', title: 'PIX',               sub: 'Pagamento instantâneo · Aprovação imediata' },
+            { id: 'Cartao', icon: '💳', title: 'Cartão de Crédito',  sub: 'Visa, Mastercard, Elo · Até 3x sem juros'  },
+            { id: 'Local',  icon: '🏪', title: 'Pagar no Local',     sub: 'Pague na barbearia no dia do corte'         },
+          ].map(m => (
+            <TouchableOpacity
+              key={m.id}
+              style={[s.methodCard, payMethod === m.id && s.methodCardSel]}
+              onPress={() => setPayMethod(m.id)}
+            >
+              <View style={s.methodIconBox}><Text style={s.methodIcon}>{m.icon}</Text></View>
+              <View style={s.methodInfo}>
+                <Text style={[s.methodTitle, payMethod === m.id && { color: '#FFF' }]}>{m.title}</Text>
+                <Text style={s.methodSub}>{m.sub}</Text>
+              </View>
+              <Text style={[s.methodArrow, payMethod === m.id && { color: '#6B8E23' }]}>›</Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* Detalhe PIX */}
+          {payMethod === 'PIX' && (
+            <View style={s.pixBox}>
+              <View style={s.qrBox}>
+                <View style={s.qrPlaceholder}>
+                  <View style={s.qrInner} />
+                </View>
+                <Text style={s.qrLabel}>QR CODE PIX</Text>
+                <Text style={s.qrAmount}>R$ {selectedService?.price},00</Text>
+              </View>
+              <TouchableOpacity style={s.copyBtn} onPress={() => { Clipboard.setString(PIX_KEY); Alert.alert('Copiado!', 'Chave PIX copiada.'); }}>
+                <LinearGradient colors={['#4B5320','#2d3314']} style={s.gradBtn}>
+                  <Text style={s.copyBtnText}>📋  COPIAR CHAVE PIX</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <View style={s.pixKeyBox}>
+                <Text style={s.pixKeyLabel}>CHAVE PIX</Text>
+                <Text style={s.pixKeyValue}>{PIX_KEY}</Text>
+              </View>
+              {['Abra o app do seu banco','Escaneie o QR Code ou cole a chave',`Confirme o valor: R$ ${selectedService?.price},00`,'Toque em "Já paguei" abaixo'].map((step, i) => (
+                <Text key={i} style={s.pixStep}>{i + 1}. {step}</Text>
+              ))}
+              <TouchableOpacity style={s.paidBtn} onPress={handleSuccess}>
+                <LinearGradient colors={['#4B5320','#2d3314']} style={s.gradBtn}>
+                  <Text style={s.paidBtnText}>JÁ PAGUEI ✓</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {payMethod === 'Local' && (
+            <TouchableOpacity style={s.continueBtn} onPress={handleSuccess}>
+              <LinearGradient colors={['#4B5320','#2d3314']} style={s.gradBtn}>
+                <Text style={s.continueBtnText}>CONFIRMAR AGENDAMENTO →</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {payMethod === 'Cartao' && (
+            <View style={s.cardBox}>
+              <Text style={s.cardLabel}>NÚMERO DO CARTÃO</Text>
+              <View style={s.cardInput}><Text style={s.cardInputText}>**** **** **** ****</Text></View>
+              <Text style={s.cardNote}>💳 Integração com Mercado Pago em breve</Text>
+              <TouchableOpacity style={s.continueBtn} onPress={handleSuccess}>
+                <LinearGradient colors={['#4B5320','#2d3314']} style={s.gradBtn}>
+                  <Text style={s.continueBtnText}>CONFIRMAR →</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+
+        <TouchableOpacity style={s.backBtn} onPress={() => preService ? navigation.goBack() : setStep('service')}>
+          <Text style={s.backText}>← Voltar</Text>
+        </TouchableOpacity>
       </View>
-
-      <TouchableOpacity
-        style={styles.primaryBtn}
-        onPress={() => navigation.navigate('Home')}
-      >
-        <LinearGradient colors={['#4B5320', '#2d3314']} style={styles.gradientBtn}>
-          <Text style={styles.primaryBtnText}>VOLTAR AO INÍCIO</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-
-  return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#000', '#0d0f08', '#000']} style={StyleSheet.absoluteFill} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {step === 'service' && renderServiceStep()}
-        {step === 'method'  && renderMethodStep()}
-        {step === 'pix'     && renderPixStep()}
-        {step === 'card'    && renderCardStep()}
-        {step === 'success' && renderSuccessStep()}
-      </ScrollView>
-    </View>
-  );
+    );
+  }
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  scroll: { padding: 24, paddingTop: 60, paddingBottom: 60 },
-
-  stepLabel: { color: '#4B5320', fontSize: 10, fontWeight: 'bold', letterSpacing: 1.5, marginBottom: 6 },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#FFF', marginBottom: 6 },
-  subtitle: { color: '#666', marginBottom: 25, fontSize: 13 },
+  scroll: { padding: 24, paddingTop: 56, paddingBottom: 120 },
+  badge: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 4 },
+  subtitle: { color: '#555', fontSize: 13, marginBottom: 24 },
 
   // Serviços
-  serviceCard: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#111', borderRadius: 14, padding: 18, marginBottom: 10,
-    borderWidth: 1, borderColor: '#222'
-  },
-  serviceCardSelected: { borderColor: '#6B8E23', backgroundColor: '#1a1f0a' },
-  serviceName: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  priceTag: { backgroundColor: '#222', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  priceTagSelected: { backgroundColor: '#4B5320' },
-  priceText: { color: '#FFF', fontWeight: 'bold' },
+  serviceCard: { backgroundColor: '#0d0d0d', borderRadius: 16, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a', overflow: 'hidden', position: 'relative' },
+  serviceCardSel: { borderColor: '#4B5320' },
+  serviceIconBox: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  serviceIcon: { fontSize: 24 },
+  serviceInfo: { flex: 1 },
+  serviceName: { color: '#aaa', fontWeight: 'bold', fontSize: 15, marginBottom: 3 },
+  serviceDuration: { color: '#444', fontSize: 11 },
+  servicePriceBadge: { backgroundColor: '#1a1a1a', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  servicePriceBadgeSel: { backgroundColor: '#4B5320' },
+  servicePrice: { color: '#888', fontWeight: 'bold', fontSize: 14 },
+  serviceCheckDot: { position: 'absolute', top: 8, right: 8 },
 
-  // Método
-  summaryBox: {
-    backgroundColor: '#111', borderRadius: 16, padding: 20,
-    marginBottom: 20, borderWidth: 1, borderColor: '#2a2a2a'
-  },
-  summaryLabel: { color: '#555', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
-  summaryValue: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginTop: 2 },
-  summaryDivider: { height: 1, backgroundColor: '#222', marginVertical: 12 },
-  summaryTotal: { color: '#6B8E23', fontSize: 28, fontWeight: 'bold', marginTop: 2 },
-  summaryMeta: { color: '#555', fontSize: 12, marginTop: 8 },
+  fixedFooter: { position: 'absolute', bottom: 36, left: 20, right: 20 },
+  nextBtn: { height: 56, borderRadius: 16, overflow: 'hidden' },
+  nextBtnDisabled: {},
+  nextBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 13, letterSpacing: 0.5 },
+  gradBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  methodCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#111', borderRadius: 14, padding: 18, marginBottom: 12,
-    borderWidth: 1, borderColor: '#4B5320'
-  },
-  methodIcon: { fontSize: 26 },
-  methodTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  methodSubtitle: { color: '#555', fontSize: 11, marginTop: 2 },
-  methodArrow: { color: '#6B8E23', fontSize: 24 },
+  // Resumo
+  summaryBox: { backgroundColor: '#0d0d0d', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#1a1a1a' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  summaryLabel2: { color: '#444', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
+  summaryVal: { color: '#FFF', fontSize: 14 },
+  totalVal: { color: '#6B8E23', fontSize: 22, fontWeight: 'bold' },
+
+  // Métodos
+  methodCard: { backgroundColor: '#0d0d0d', borderRadius: 16, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a' },
+  methodCardSel: { borderColor: '#4B5320', backgroundColor: '#0d1208' },
+  methodIconBox: { width: 46, height: 46, backgroundColor: '#1a1a1a', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  methodIcon: { fontSize: 22 },
+  methodInfo: { flex: 1 },
+  methodTitle: { color: '#aaa', fontWeight: 'bold', fontSize: 15, marginBottom: 3 },
+  methodSub: { color: '#444', fontSize: 11 },
+  methodArrow: { color: '#333', fontSize: 22 },
 
   // PIX
-  qrContainer: { marginVertical: 20 },
-  qrBox: {
-    width: 180, height: 180, backgroundColor: '#111', borderRadius: 20,
-    borderWidth: 2, borderColor: '#4B5320', justifyContent: 'center', alignItems: 'center'
-  },
-  qrPlaceholder: { fontSize: 80, color: '#4B5320' },
-  qrLabel: { color: '#555', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginTop: 4 },
-  qrAmount: { color: '#6B8E23', fontSize: 16, fontWeight: 'bold', marginTop: 4 },
-  pixCopyBtn: {
-    backgroundColor: '#1a1f0a', borderWidth: 1, borderColor: '#4B5320',
-    borderRadius: 12, paddingVertical: 14, paddingHorizontal: 30, marginBottom: 16
-  },
-  pixCopyText: { color: '#6B8E23', fontWeight: 'bold', fontSize: 14 },
-  pixKeyBox: {
-    backgroundColor: '#111', borderRadius: 12, padding: 14, width: '100%', marginBottom: 20
-  },
-  pixKeyLabel: { color: '#555', fontSize: 9, fontWeight: 'bold', letterSpacing: 1 },
-  pixKeyValue: { color: '#FFF', fontSize: 13, marginTop: 4 },
-  pixSteps: { width: '100%', backgroundColor: '#0d0d0d', borderRadius: 12, padding: 16, marginBottom: 24 },
-  pixStepText: { color: '#888', fontSize: 13, marginBottom: 8 },
+  pixBox: { backgroundColor: '#0d0d0d', borderRadius: 20, padding: 20, marginTop: 12, borderWidth: 1, borderColor: '#1a2210' },
+  qrBox: { alignItems: 'center', marginBottom: 16 },
+  qrPlaceholder: { width: 150, height: 150, backgroundColor: '#111', borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#4B5320', marginBottom: 12 },
+  qrInner: { width: 80, height: 80, backgroundColor: '#4B5320', borderRadius: 4 },
+  qrLabel: { color: '#444', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 4 },
+  qrAmount: { color: '#6B8E23', fontSize: 20, fontWeight: 'bold' },
+  copyBtn: { height: 50, borderRadius: 14, overflow: 'hidden', marginBottom: 14 },
+  copyBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+  pixKeyBox: { backgroundColor: '#111', borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: '#1a1a1a' },
+  pixKeyLabel: { color: '#444', fontSize: 8, fontWeight: 'bold', letterSpacing: 2, marginBottom: 4 },
+  pixKeyValue: { color: '#FFF', fontSize: 13 },
+  pixStep: { color: '#555', fontSize: 12, marginBottom: 6, lineHeight: 18 },
+  paidBtn: { height: 54, borderRadius: 14, overflow: 'hidden', marginTop: 16 },
+  paidBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
 
   // Cartão
-  cardPreview: {
-    borderRadius: 18, padding: 24, marginBottom: 24, height: 120, justifyContent: 'center'
-  },
-  cardPreviewNumber: { color: '#FFF', fontSize: 18, letterSpacing: 3, fontWeight: '300' },
-  cardPreviewLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
-  cardField: { marginBottom: 14 },
-  fieldLabel: { color: '#555', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 6 },
-  fieldInput: {
-    backgroundColor: '#111', borderRadius: 10, padding: 14,
-    borderWidth: 1, borderColor: '#2a2a2a'
-  },
-  fieldText: { color: '#666', fontSize: 15 },
-  cardNote: { color: '#444', fontSize: 11, textAlign: 'center', marginBottom: 24, lineHeight: 18 },
+  cardBox: { backgroundColor: '#0d0d0d', borderRadius: 20, padding: 20, marginTop: 12, borderWidth: 1, borderColor: '#1a1a1a' },
+  cardLabel: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 10 },
+  cardInput: { backgroundColor: '#111', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#222', marginBottom: 12 },
+  cardInputText: { color: '#555', fontSize: 16, letterSpacing: 4 },
+  cardNote: { color: '#444', fontSize: 11, marginBottom: 16, textAlign: 'center' },
+  continueBtn: { height: 54, borderRadius: 14, overflow: 'hidden' },
+  continueBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
 
   // Sucesso
-  successIcon: { marginBottom: 20 },
-  successTitle: { fontSize: 24, fontWeight: 'bold', color: '#6B8E23', marginBottom: 8 },
-  successSubtitle: { color: '#666', fontSize: 14, marginBottom: 30 },
-  receiptBox: {
-    backgroundColor: '#111', borderRadius: 16, padding: 20, width: '100%',
-    borderWidth: 1, borderColor: '#222', marginBottom: 30
-  },
-  receiptTitle: { color: '#4B5320', fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 16 },
-  receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  receiptLabel: { color: '#666', fontSize: 13 },
-  receiptValue: { color: '#FFF', fontSize: 13, fontWeight: '600' },
+  successContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  successCircle: { marginBottom: 24 },
+  successCircleInner: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center' },
+  successIcon: { color: '#FFF', fontSize: 48, fontWeight: 'bold' },
+  successTitle: { color: '#FFF', fontSize: 26, fontWeight: 'bold', marginBottom: 8 },
+  successSubtitle: { color: '#555', fontSize: 14, marginBottom: 32 },
+  receiptCard: { width: '100%', backgroundColor: '#0d0d0d', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#1a2210', marginBottom: 24 },
+  receiptTitle: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 16 },
+  receiptRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#111' },
+  receiptLabel: { color: '#555', fontSize: 12 },
+  receiptValue: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+  homeBtn: { width: '100%', height: 56, borderRadius: 16, overflow: 'hidden' },
+  homeBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
 
-  // Botões
-  primaryBtn: { width: '100%', height: 58, borderRadius: 16, overflow: 'hidden', marginTop: 8, marginBottom: 8 },
-  gradientBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  primaryBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
-  disabledBtn: { opacity: 0.3 },
-  backLink: { alignItems: 'center', marginTop: 12, paddingVertical: 8 },
-  backLinkText: { color: '#4B5320', fontWeight: 'bold' },
+  backBtn: { position: 'absolute', top: 14, left: 20, padding: 8 },
+  backText: { color: '#4B5320', fontWeight: 'bold', fontSize: 13 },
 });

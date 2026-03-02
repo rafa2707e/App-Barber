@@ -1,93 +1,141 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const TIMES = ['09:00', '09:30', '10:00', '11:00', '14:00', '15:30', '17:00', '18:00', '19:30'];
+const TIMES = [
+  { time: '09:00', period: 'Manhã' }, { time: '09:30', period: 'Manhã' },
+  { time: '10:00', period: 'Manhã' }, { time: '11:00', period: 'Manhã' },
+  { time: '14:00', period: 'Tarde' }, { time: '15:30', period: 'Tarde' },
+  { time: '17:00', period: 'Tarde' }, { time: '18:00', period: 'Noite' },
+  { time: '19:30', period: 'Noite' },
+];
 
 export default function TimeSelectionScreen({ navigation, route }) {
   const [selectedTime, setSelectedTime] = useState(null);
-  const { selectedDate, barber } = route?.params || {};
+  const { selectedDate, barber, service, price } = route?.params || {};
+  const formattedDate = selectedDate ? selectedDate.split('-').reverse().join('/') : '—';
+  const periods = ['Manhã', 'Tarde', 'Noite'];
+  const icons = { 'Manhã': '🌅', 'Tarde': '☀️', 'Noite': '🌙' };
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       <LinearGradient colors={['#000', '#0d0f08', '#000']} style={StyleSheet.absoluteFill} />
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={s.badge}>PASSO 3 DE 3</Text>
+        <Text style={s.title}>Escolha o Horário</Text>
 
-      <Text style={styles.badge}>PASSO 3 DE 3</Text>
-      <Text style={styles.title}>Horários Disponíveis</Text>
-      {selectedDate && (
-        <Text style={styles.subtitle}>
-          📅 {selectedDate.split('-').reverse().join('/')}
-          {barber ? `  ·  ✂️ ${barber.name}` : ''}
-        </Text>
-      )}
+        {/* Resumo */}
+        <View style={s.summaryCard}>
+          <Text style={s.sectionTitle}>RESUMO DO AGENDAMENTO</Text>
+          <View style={s.summaryRow}>
+            {[
+              { icon: '✂️', label: 'BARBEIRO', value: barber?.name || 'João Silva' },
+              { icon: '💈', label: 'SERVIÇO',  value: service || 'Corte' },
+              { icon: '📅', label: 'DATA',     value: formattedDate },
+            ].map((item, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && <View style={s.divider} />}
+                <View style={s.summaryItem}>
+                  <Text style={s.summaryIcon}>{item.icon}</Text>
+                  <Text style={s.summaryLabel}>{item.label}</Text>
+                  <Text style={s.summaryValue}>{item.value}</Text>
+                </View>
+              </React.Fragment>
+            ))}
+          </View>
+          {price && (
+            <View style={s.priceRow}>
+              <Text style={s.priceLabel}>Valor</Text>
+              <Text style={s.priceValue}>R$ {price},00</Text>
+            </View>
+          )}
+        </View>
 
-      <FlatList
-        data={TIMES}
-        numColumns={3}
-        keyExtractor={item => item}
-        contentContainerStyle={styles.grid}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.slot, selectedTime === item && styles.slotSelected]}
-            onPress={() => setSelectedTime(item)}
-          >
-            <Text style={[styles.slotText, selectedTime === item && styles.slotTextSelected]}>
-              {item}
-            </Text>
-          </TouchableOpacity>
-        )}
-      />
+        {/* Horários por período */}
+        {periods.map(period => (
+          <View key={period} style={s.periodSection}>
+            <View style={s.periodHeader}>
+              <Text style={s.periodIcon}>{icons[period]}</Text>
+              <Text style={s.periodLabel}>{period}</Text>
+              <View style={s.periodLine} />
+            </View>
+            <View style={s.slotsGrid}>
+              {TIMES.filter(t => t.period === period).map(({ time }) => {
+                const sel = selectedTime === time;
+                return (
+                  <TouchableOpacity key={time} style={[s.slot, sel && s.slotSel]} onPress={() => setSelectedTime(time)}>
+                    {sel && <LinearGradient colors={['#4B5320','#2d3314']} style={[StyleSheet.absoluteFill,{borderRadius:12}]} />}
+                    <Text style={[s.slotTime, sel && s.slotTimeSel]}>{time}</Text>
+                    {sel && <Text style={s.check}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        ))}
 
+        <View style={s.tipBox}>
+          <Text style={s.tipText}>💡 Selecione um horário disponível para continuar.</Text>
+        </View>
+      </ScrollView>
+
+      {/* Footer fixo ao seleccionar */}
       {selectedTime && (
-        <View style={styles.footer}>
-          <Text style={styles.selectedInfo}>✅ {selectedTime} selecionado</Text>
-
-          {/* ✅ CORRIGIDO: navega para 'Payment' (nome registado no App.js) 
-              e passa todos os dados para o comprovante */}
-          <TouchableOpacity
-            style={styles.confirmBtn}
-            onPress={() => navigation.navigate('Payment', {
-              selectedTime,
-              selectedDate,
-              barber,
-            })}
-          >
-            <LinearGradient colors={['#4B5320', '#2d3314']} style={styles.gradientBtn}>
-              <Text style={styles.confirmText}>CONFIRMAR E PAGAR →</Text>
+        <View style={s.footer}>
+          <View style={s.footerInfo}>
+            <Text style={s.footerLabel}>Horário selecionado</Text>
+            <Text style={s.footerTime}>{selectedTime} · {formattedDate}</Text>
+          </View>
+          <TouchableOpacity style={s.confirmBtn} onPress={() => navigation.navigate('Payment', { selectedTime, selectedDate, barber, service, price })}>
+            <LinearGradient colors={['#4B5320','#2d3314']} style={s.gradBtn}>
+              <Text style={s.confirmText}>CONFIRMAR E PAGAR →</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
       )}
-
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.backText}>← Voltar</Text>
+      <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+        <Text style={s.backText}>← Voltar</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', padding: 24, paddingTop: 60 },
-  badge:    { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6 },
-  title:    { fontSize: 26, fontWeight: 'bold', color: '#FFF', marginBottom: 6 },
-  subtitle: { color: '#555', fontSize: 13, marginBottom: 24 },
-
-  grid: { paddingBottom: 20 },
-  slot: {
-    flex: 1, margin: 6, paddingVertical: 16, borderRadius: 12,
-    backgroundColor: '#111', alignItems: 'center',
-    borderWidth: 1, borderColor: '#222',
-  },
-  slotSelected: { backgroundColor: '#1a1f0a', borderColor: '#6B8E23' },
-  slotText: { color: '#888', fontWeight: 'bold', fontSize: 14 },
-  slotTextSelected: { color: '#6B8E23' },
-
-  footer: { marginTop: 10, gap: 12 },
-  selectedInfo: { color: '#6B8E23', fontWeight: 'bold', textAlign: 'center', fontSize: 13 },
-  confirmBtn: { height: 58, borderRadius: 16, overflow: 'hidden' },
-  gradientBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  confirmText: { color: '#FFF', fontWeight: 'bold', fontSize: 15, letterSpacing: 1 },
-
-  backBtn: { alignSelf: 'center', marginTop: 16, paddingVertical: 8 },
-  backText: { color: '#4B5320', fontWeight: 'bold' },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  scroll: { padding: 24, paddingTop: 56, paddingBottom: 180 },
+  badge: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 20 },
+  summaryCard: { backgroundColor: '#0d0d0d', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#1a1a1a', marginBottom: 28 },
+  sectionTitle: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 16 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryItem: { flex: 1, alignItems: 'center' },
+  summaryIcon: { fontSize: 22, marginBottom: 6 },
+  summaryLabel: { color: '#444', fontSize: 8, fontWeight: 'bold', letterSpacing: 1, marginBottom: 4 },
+  summaryValue: { color: '#FFF', fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
+  divider: { width: 1, height: 50, backgroundColor: '#1a1a1a' },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#1a1a1a' },
+  priceLabel: { color: '#555', fontSize: 12 },
+  priceValue: { color: '#6B8E23', fontSize: 18, fontWeight: 'bold' },
+  periodSection: { marginBottom: 24 },
+  periodHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+  periodIcon: { fontSize: 16 },
+  periodLabel: { color: '#888', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
+  periodLine: { flex: 1, height: 1, backgroundColor: '#1a1a1a' },
+  slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  slot: { width: '30%', paddingVertical: 16, borderRadius: 12, backgroundColor: '#111', alignItems: 'center', borderWidth: 1, borderColor: '#1d1d1d', overflow: 'hidden', position: 'relative' },
+  slotSel: { borderColor: '#6B8E23' },
+  slotTime: { color: '#777', fontWeight: 'bold', fontSize: 15 },
+  slotTimeSel: { color: '#FFF' },
+  check: { position: 'absolute', top: 4, right: 6, color: '#6B8E23', fontSize: 10 },
+  tipBox: { backgroundColor: '#0a0d07', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#1a2210' },
+  tipText: { color: '#444', fontSize: 11, lineHeight: 18 },
+  footer: { position: 'absolute', bottom: 50, left: 20, right: 20, backgroundColor: '#0d0d0d', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#1a1a1a', elevation: 20 },
+  footerInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  footerLabel: { color: '#555', fontSize: 11 },
+  footerTime: { color: '#6B8E23', fontSize: 11, fontWeight: 'bold' },
+  confirmBtn: { height: 52, borderRadius: 14, overflow: 'hidden' },
+  gradBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  confirmText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
+  backBtn: { position: 'absolute', top: 14, left: 20, padding: 8 },
+  backText: { color: '#4B5320', fontWeight: 'bold', fontSize: 13 },
 });

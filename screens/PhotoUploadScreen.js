@@ -71,13 +71,10 @@ export default function App() {
   const [base64, setBase64] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState(null);
-<<<<<<< HEAD
   // API do Gemini para fazer a chamada 
-  const [apiKey, setApiKey]   = useState('AIzaSyDkG2W_u-JPJdQ_pKrwpugHancBmNRck08');
-=======
+
   // ✅ FIX: API Key agora é inserida pelo utilizador em runtime, não hardcoded
-  const [apiKey, setApiKey]   = useState('Your API Key');
->>>>>>> d18860a708a0f53a0bdaeadb56ec0875a99d6aa7
+  const [apiKey, setApiKey]   = useState('AIzaSyDkG2W_u-JPJdQ_pKrwpugHancBmNRck08');
   const [showKeyInput, setShowKeyInput] = useState(false);
 
   useEffect(() => {
@@ -89,6 +86,7 @@ export default function App() {
             "Permissão Necessária", 
             "O acesso à galeria é necessario para fazer a analise facil"
           );
+          
         }
       }
     })();
@@ -423,6 +421,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#111', 
     flexDirection: 'row',
+    
     justifyContent: 'center', 
     alignItems: 'center',
     gap: 10

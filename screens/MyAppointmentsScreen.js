@@ -1,237 +1,218 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList,
-  TouchableOpacity, Alert
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, Alert, ActivityIndicator, RefreshControl
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const APPOINTMENTS = [
-  { id: '1', data: '2025-07-15', hora: '14:30', barbeiro: 'João Silva',    servico: 'Degradê',       preco: 45, status: 'upcoming', pago: true,  metodo: 'PIX'    },
-  { id: '2', data: '2025-06-28', hora: '10:00', barbeiro: 'Carlos Oliveira', servico: 'Visagismo',   preco: 80, status: 'done',     pago: true,  metodo: 'Cartão' },
-  { id: '3', data: '2025-06-10', hora: '09:30', barbeiro: 'Pedro Santos',  servico: 'Corte Simples', preco: 35, status: 'done',     pago: true,  metodo: 'Local'  },
-  { id: '4', data: '2025-05-22', hora: '16:00', barbeiro: 'João Silva',    servico: 'Corte + Barba', preco: 55, status: 'done',     pago: true,  metodo: 'PIX'    },
-];
-
-const STATUS_CONFIG = {
-  upcoming: { label: 'Agendado',   color: '#1a6b8e', bg: '#0a1520', icon: '📅' },
-  done:     { label: 'Concluído',  color: '#4B5320', bg: '#1a1f0a', icon: '✅' },
-  cancelled:{ label: 'Cancelado',  color: '#8e1a1a', bg: '#1f0a0a', icon: '❌' },
-};
+import { useAuth } from '../AuthContext';
 
 export default function MyAppointmentsScreen({ navigation }) {
-  const [appointments, setAppointments] = useState(APPOINTMENTS);
-  const [activeFilter, setActiveFilter] = useState('all');
+  const { user, supabase } = useAuth();
+  const [appointments, setAppointments] = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
+  const [filter,       setFilter]       = useState('all');
+
+  useEffect(() => { fetchAppointments(); }, []);
+
+  const fetchAppointments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*, barber:barber_id ( name, specialty )')
+        .eq('client_id', user.id)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      setAppointments(data || []);
+    } catch (e) {
+      console.error('Erro agendamentos:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   const handleCancel = (id) => {
-    Alert.alert(
-      'Cancelar Agendamento',
-      'Tem a certeza que deseja cancelar este corte?',
-      [
-        { text: 'Não', style: 'cancel' },
-        {
-          text: 'Sim, cancelar',
-          style: 'destructive',
-          onPress: () => setAppointments(prev =>
-            prev.map(a => a.id === id ? { ...a, status: 'cancelled' } : a)
-          ),
-        },
-      ]
-    );
+    Alert.alert('Cancelar agendamento', 'Tens a certeza?', [
+      { text: 'Não', style: 'cancel' },
+      {
+        text: 'Cancelar corte', style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase
+            .from('appointments')
+            .update({ status: 'cancelled' })
+            .eq('id', id).eq('client_id', user.id);
+          if (!error) fetchAppointments();
+          else Alert.alert('Erro', 'Não foi possível cancelar.');
+        }
+      }
+    ]);
   };
 
-  const filtered = activeFilter === 'all'
-    ? appointments
-    : appointments.filter(a => a.status === activeFilter);
+  const filtered = filter === 'all' ? appointments
+    : filter === 'upcoming' ? appointments.filter(a => a.status === 'upcoming')
+    : appointments.filter(a => a.status === 'done');
 
-  const totalGasto = appointments
-    .filter(a => a.status === 'done')
-    .reduce((s, a) => s + a.preco, 0);
+  const totalGasto    = appointments.filter(a => a.paid).reduce((s, a) => s + Number(a.price), 0);
+  const totalCortes   = appointments.filter(a => a.status === 'done').length;
+  const totalAgendado = appointments.filter(a => a.status === 'upcoming').length;
 
-  const formatDate = (d) => d.split('-').reverse().join('/');
+  const STATUS_COLOR = { upcoming: '#4B5320', done: '#2a5c2a', cancelled: '#5c2a2a' };
+  const STATUS_LABEL = { upcoming: 'Agendado', done: 'Concluído', cancelled: 'Cancelado' };
 
-  const AppCard = ({ item }) => {
-    const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.done;
+  if (loading) {
     return (
-      <View style={[styles.card, { borderLeftColor: cfg.color }]}>
-        <View style={styles.cardTop}>
-          <View style={[styles.statusBadge, { backgroundColor: cfg.bg, borderColor: cfg.color }]}>
-            <Text style={styles.statusIcon}>{cfg.icon}</Text>
-            <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
-          </View>
-          {item.status === 'upcoming' && (
-            <TouchableOpacity onPress={() => handleCancel(item.id)}>
-              <Text style={styles.cancelLink}>Cancelar</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <Text style={styles.serviceName}>{item.servico}</Text>
-        <Text style={styles.barberName}>✂️ {item.barbeiro}</Text>
-
-        <View style={styles.cardMeta}>
-          <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>📅</Text>
-            <Text style={styles.metaText}>{formatDate(item.data)}</Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>⏰</Text>
-            <Text style={styles.metaText}>{item.hora}</Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>💰</Text>
-            <Text style={styles.metaText}>R$ {item.preco}</Text>
-          </View>
-        </View>
-
-        <View style={styles.payRow}>
-          <Text style={styles.payLabel}>
-            {item.pago ? `✅ Pago via ${item.metodo}` : '⏳ Pagamento no local'}
-          </Text>
-        </View>
-
-        {item.status === 'upcoming' && (
-          <TouchableOpacity
-            style={styles.rescheduleBtn}
-            onPress={() => navigation.navigate('Appointment')}
-          >
-            <Text style={styles.rescheduleTxt}>🔄 Reagendar</Text>
-          </TouchableOpacity>
-        )}
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color="#6B8E23" size="large" />
       </View>
     );
-  };
+  }
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       <LinearGradient colors={['#000', '#0d0f08', '#000']} style={StyleSheet.absoluteFill} />
 
-      <FlatList
-        data={filtered}
-        keyExtractor={i => i.id}
-        contentContainerStyle={styles.scroll}
+      <ScrollView
+        contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={() => (
-          <View>
-            <Text style={styles.badge}>MEU HISTÓRICO</Text>
-            <Text style={styles.title}>Meus Cortes</Text>
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchAppointments(); }}
+            tintColor="#6B8E23"
+          />
+        }
+      >
+        <Text style={s.title}>Meus Cortes</Text>
 
-            {/* Resumo */}
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{appointments.filter(a => a.status === 'done').length}</Text>
-                <Text style={styles.summaryLabel}>Cortes feitos</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={[styles.summaryValue, { color: '#6B8E23' }]}>R$ {totalGasto}</Text>
-                <Text style={styles.summaryLabel}>Total gasto</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={[styles.summaryValue, { color: '#1a6b8e' }]}>
-                  {appointments.filter(a => a.status === 'upcoming').length}
+        {/* Stats */}
+        <View style={s.statsRow}>
+          <View style={s.statBox}>
+            <Text style={s.statValue}>{totalCortes}</Text>
+            <Text style={s.statLabel}>Cortes feitos</Text>
+          </View>
+          <View style={s.statBox}>
+            <Text style={[s.statValue, { color: '#6B8E23' }]}>R${totalGasto}</Text>
+            <Text style={s.statLabel}>Total gasto</Text>
+          </View>
+          <View style={s.statBox}>
+            <Text style={[s.statValue, { color: '#4B8E8E' }]}>{totalAgendado}</Text>
+            <Text style={s.statLabel}>Agendados</Text>
+          </View>
+        </View>
+
+        {/* Filtros */}
+        <View style={s.filters}>
+          {[
+            { key: 'all',      label: 'Todos'      },
+            { key: 'upcoming', label: 'Futuros'    },
+            { key: 'done',     label: 'Concluídos' },
+          ].map(f => (
+            <TouchableOpacity
+              key={f.key}
+              style={[s.filterBtn, filter === f.key && s.filterActive]}
+              onPress={() => setFilter(f.key)}
+            >
+              <Text style={[s.filterText, filter === f.key && s.filterTextActive]}>
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Lista */}
+        {filtered.length === 0 ? (
+          <View style={s.emptyBox}>
+            <Text style={s.emptyIcon}>✂️</Text>
+            <Text style={s.emptyTitle}>Nenhum agendamento</Text>
+            <Text style={s.emptyText}>Agenda o teu primeiro corte!</Text>
+            <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('Appointment')}>
+              <LinearGradient colors={['#4B5320', '#2d3314']} style={s.gradBtn}>
+                <Text style={s.emptyBtnText}>AGENDAR AGORA</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        ) : filtered.map(appt => (
+          <View key={appt.id} style={[s.card, { borderLeftColor: STATUS_COLOR[appt.status] || '#333' }]}>
+            <View style={s.cardTop}>
+              <View style={[s.badge, { backgroundColor: (STATUS_COLOR[appt.status] || '#333') + '33' }]}>
+                <Text style={[s.badgeText, { color: appt.status === 'cancelled' ? '#e05555' : '#6B8E23' }]}>
+                  {STATUS_LABEL[appt.status]}
                 </Text>
-                <Text style={styles.summaryLabel}>Agendados</Text>
               </View>
+              {appt.status === 'upcoming' && (
+                <TouchableOpacity onPress={() => handleCancel(appt.id)}>
+                  <Text style={s.cancelText}>Cancelar</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Filtros */}
-            <View style={styles.filterRow}>
-              {[
-                { key: 'all',      label: 'Todos' },
-                { key: 'upcoming', label: 'Futuros' },
-                { key: 'done',     label: 'Concluídos' },
-              ].map(f => (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[styles.chip, activeFilter === f.key && styles.chipActive]}
-                  onPress={() => setActiveFilter(f.key)}
-                >
-                  <Text style={[styles.chipText, activeFilter === f.key && styles.chipTextActive]}>
-                    {f.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={s.cardService}>{appt.service}</Text>
+            <Text style={s.cardBarber}>✂️ {appt.barber?.name || 'Barbeiro'}</Text>
+
+            <View style={s.cardRow}>
+              <Text style={s.cardDetail}>📅 {appt.date?.split('-').reverse().join('/')}</Text>
+              <Text style={s.cardDetail}>🕐 {appt.time}</Text>
+              <Text style={s.cardDetail}>💰 R$ {appt.price}</Text>
             </View>
+
+            <Text style={[s.cardPaid, { color: appt.paid ? '#6B8E23' : '#8E6B23' }]}>
+              {appt.paid ? `✅ Pago via ${appt.pay_method}` : '⏳ Pagar no local'}
+            </Text>
           </View>
-        )}
-        ListEmptyComponent={() => (
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>✂️</Text>
-            <Text style={styles.emptyText}>Nenhum corte aqui</Text>
-            <TouchableOpacity
-              style={styles.bookBtn}
-              onPress={() => navigation.navigate('Appointment')}
-            >
-              <LinearGradient colors={['#4B5320', '#2d3314']} style={styles.bookBtnGrad}>
-                <Text style={styles.bookBtnText}>AGENDAR AGORA</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        )}
-        renderItem={({ item }) => <AppCard item={item} />}
-        ListFooterComponent={() => (
-          filtered.length > 0 ? (
-            <TouchableOpacity
-              style={styles.newApptBtn}
-              onPress={() => navigation.navigate('Appointment')}
-            >
-              <LinearGradient colors={['#4B5320', '#2d3314']} style={styles.newApptGrad}>
-                <Text style={styles.newApptText}>+ NOVO AGENDAMENTO</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : null
-        )}
-      />
+        ))}
+
+        <View style={{ height: 120 }} />
+      </ScrollView>
+
+      <View style={s.fabWrap}>
+        <TouchableOpacity style={s.fab} onPress={() => navigation.navigate('Appointment')}>
+          <LinearGradient colors={['#4B5320', '#2d3314']} style={s.gradBtn}>
+            <Text style={s.fabText}>+ AGENDAR CORTE</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  scroll: { padding: 20, paddingTop: 55, paddingBottom: 40 },
+  scroll:    { padding: 20, paddingTop: 56 },
+  title:     { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 20 },
+  gradBtn:   { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  badge: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 4 },
-  title: { color: '#FFF', fontSize: 28, fontWeight: 'bold', marginBottom: 20 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  statBox:  { flex: 1, backgroundColor: '#0d0d0d', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a' },
+  statValue: { fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 4 },
+  statLabel: { fontSize: 10, color: '#555', textAlign: 'center' },
 
-  summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  summaryCard: { flex: 1, backgroundColor: '#111', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a' },
-  summaryValue: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
-  summaryLabel: { color: '#555', fontSize: 9, marginTop: 3 },
+  filters:         { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  filterBtn:       { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#111', borderWidth: 1, borderColor: '#1a1a1a' },
+  filterActive:    { backgroundColor: '#4B5320', borderColor: '#6B8E23' },
+  filterText:      { color: '#555', fontSize: 12, fontWeight: 'bold' },
+  filterTextActive: { color: '#FFF' },
 
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
-  chipActive: { backgroundColor: '#4B5320', borderColor: '#6B8E23' },
-  chipText: { color: '#555', fontWeight: '600', fontSize: 12 },
-  chipTextActive: { color: '#FFF' },
+  card:       { backgroundColor: '#0d0d0d', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#1a1a1a', borderLeftWidth: 3 },
+  cardTop:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  badge:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  badgeText:  { fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
+  cancelText: { color: '#8E3A3A', fontSize: 12, fontWeight: 'bold' },
+  cardService: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
+  cardBarber: { color: '#888', fontSize: 13, marginBottom: 10 },
+  cardRow:    { flexDirection: 'row', gap: 12, flexWrap: 'wrap', marginBottom: 8 },
+  cardDetail: { color: '#555', fontSize: 12 },
+  cardPaid:   { fontSize: 12, fontWeight: '600' },
 
-  card: { backgroundColor: '#0d0d0d', borderRadius: 16, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#1a1a1a', borderLeftWidth: 3 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
-  statusIcon: { fontSize: 11 },
-  statusText: { fontSize: 10, fontWeight: 'bold' },
-  cancelLink: { color: '#8e1a1a', fontSize: 12, fontWeight: '600' },
+  emptyBox:    { alignItems: 'center', paddingVertical: 60 },
+  emptyIcon:   { fontSize: 48, marginBottom: 16 },
+  emptyTitle:  { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
+  emptyText:   { color: '#555', fontSize: 13, marginBottom: 24 },
+  emptyBtn:    { height: 50, width: 200, borderRadius: 14, overflow: 'hidden' },
+  emptyBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
 
-  serviceName: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
-  barberName: { color: '#666', fontSize: 13, marginBottom: 12 },
-
-  cardMeta: { flexDirection: 'row', gap: 16, marginBottom: 10 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaIcon: { fontSize: 12 },
-  metaText: { color: '#888', fontSize: 12 },
-
-  payRow: { borderTopWidth: 1, borderTopColor: '#1a1a1a', paddingTop: 10, marginTop: 4 },
-  payLabel: { color: '#555', fontSize: 12 },
-
-  rescheduleBtn: { marginTop: 10, alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#1a1f0a', borderRadius: 10, borderWidth: 1, borderColor: '#4B5320' },
-  rescheduleTxt: { color: '#6B8E23', fontSize: 12, fontWeight: '600' },
-
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyIcon: { fontSize: 50, marginBottom: 16 },
-  emptyText: { color: '#444', fontSize: 15, marginBottom: 24 },
-  bookBtn: { width: 220, height: 50, borderRadius: 14, overflow: 'hidden' },
-  bookBtnGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  bookBtnText: { color: '#FFF', fontWeight: 'bold' },
-
-  newApptBtn: { height: 55, borderRadius: 16, overflow: 'hidden', marginTop: 16 },
-  newApptGrad: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  newApptText: { color: '#FFF', fontWeight: 'bold', letterSpacing: 1 },
+  fabWrap: { position: 'absolute', bottom: 100, left: 20, right: 20 },
+  fab:     { height: 54, borderRadius: 16, overflow: 'hidden' },
+  fabText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
 });

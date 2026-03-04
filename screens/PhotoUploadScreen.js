@@ -74,7 +74,7 @@ export default function App() {
   // API do Gemini para fazer a chamada 
 
   // ✅ FIX: API Key agora é inserida pelo utilizador em runtime, não hardcoded
-  const [apiKey, setApiKey]   = useState('AIzaSyDkG2W_u-JPJdQ_pKrwpugHancBmNRck08');
+  const [apiKey, setApiKey]   = useState('AIzaSyAuqRGjNslr4uE_lFSW6mZfuoINEEmKrjw');
   const [showKeyInput, setShowKeyInput] = useState(false);
 
   useEffect(() => {

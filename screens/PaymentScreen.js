@@ -13,7 +13,7 @@ const SERVICES = [
   { name: 'Barba',              price: 25, icon: '🧔', duration: '25min', color: '#101510' },
 ];
 
-const PIX_KEY = 'estudio-hair@pix.com.br';
+const PIX_KEY = 'rafa.nana.moura@gmail.com';
 
 export default function PaymentScreen({ navigation, route }) {
   const { selectedDate, selectedTime, barber, service: preService, price: prePrice } = route?.params || {};

@@ -39,11 +39,44 @@ export function AuthProvider({ children }) {
         .select('*')
         .eq('id', userId)
         .single();
-      if (!error && data) setProfile(data);
+
+      if (!error && data) {
+        setProfile(data);
+      } else {
+        // Perfil não existe — cria automaticamente
+        console.warn('Perfil não encontrado, criando...');
+        await createProfileFallback(userId);
+      }
     } catch (e) {
       console.warn('Erro ao buscar perfil:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Cria perfil automaticamente se o trigger falhou
+  const createProfileFallback = async (userId) => {
+    try {
+      const { data: authUser } = await supabase.auth.getUser();
+      if (!authUser?.user) return;
+
+      const meta = authUser.user.user_metadata || {};
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert({
+          id:        userId,
+          name:      meta.name || authUser.user.email?.split('@')[0] || 'Utilizador',
+          email:     authUser.user.email || '',
+          role:      meta.role || 'client',
+          phone:     meta.phone || '',
+          specialty: meta.specialty || '',
+        })
+        .select()
+        .single();
+
+      if (!error && data) setProfile(data);
+    } catch (e) {
+      console.warn('Erro ao criar perfil fallback:', e);
     }
   };
 
@@ -57,7 +90,7 @@ export function AuthProvider({ children }) {
     });
     if (error) throw new Error(error.message);
     if (data.user) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 1500));
       await fetchProfile(data.user.id);
     }
     return data.user;
@@ -74,6 +107,7 @@ export function AuthProvider({ children }) {
   };
 
   const updateProfile = async ({ name, phone }) => {
+    if (!user?.id) throw new Error('Utilizador não autenticado');
     const { data, error } = await supabase
       .from('profiles')
       .update({ name, phone })
@@ -85,19 +119,31 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const currentUser = profile ? {
-    id:        profile.id,
-    name:      profile.name,
-    email:     profile.email || user?.email,
-    role:      profile.role,
-    phone:     profile.phone,
-    specialty: profile.specialty,
-  } : null;
+  // Sempre tem um user válido — usa profile se existir, senão usa rawUser como fallback
+  const currentUser = profile
+    ? {
+        id:        profile.id,
+        name:      profile.name,
+        email:     profile.email || user?.email,
+        role:      profile.role,
+        phone:     profile.phone,
+        specialty: profile.specialty,
+      }
+    : user
+    ? {
+        id:        user.id,
+        name:      user.user_metadata?.name || user.email?.split('@')[0] || 'Utilizador',
+        email:     user.email,
+        role:      user.user_metadata?.role || 'client',
+        phone:     user.user_metadata?.phone || '',
+        specialty: user.user_metadata?.specialty || '',
+      }
+    : null;
 
   return (
     <AuthContext.Provider value={{
-      user: currentUser,
-      rawUser: user,
+      user:         currentUser,
+      rawUser:      user,
       profile,
       loading,
       login,

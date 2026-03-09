@@ -82,6 +82,39 @@ function BarberTabs() {
   );
 }
 
+// Navigator para clientes — inclui todos os ecrãs necessários
+function ClientNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ClientTabs"      component={ClientTabs}            />
+      <Stack.Screen name="Appointment"     component={AppointmentScreen}     />
+      <Stack.Screen name="BarberSelection" component={BarberSelectionScreen} />
+      <Stack.Screen name="TimeSelection"   component={TimeSelectionScreen}   />
+      <Stack.Screen name="Payment"         component={PaymentScreen}         />
+      <Stack.Screen name="PhotoUpload"     component={PhotoUploadScreen}     />
+    </Stack.Navigator>
+  );
+}
+
+// Navigator para barbeiros
+function BarberNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="BarberTabs" component={BarberTabs} />
+    </Stack.Navigator>
+  );
+}
+
+// Navigator para utilizadores não autenticados
+function AuthNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login"    component={LoginScreen}    />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+    </Stack.Navigator>
+  );
+}
+
 function RootNavigator() {
   const { user, loading } = useAuth();
 
@@ -96,19 +129,9 @@ function RootNavigator() {
     );
   }
 
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login"           component={LoginScreen}           />
-      <Stack.Screen name="Register"        component={RegisterScreen}        />
-      <Stack.Screen name="ClientTabs"      component={ClientTabs}            />
-      <Stack.Screen name="Appointment"     component={AppointmentScreen}     />
-      <Stack.Screen name="BarberSelection" component={BarberSelectionScreen} />
-      <Stack.Screen name="TimeSelection"   component={TimeSelectionScreen}   />
-      <Stack.Screen name="Payment"         component={PaymentScreen}         />
-      <Stack.Screen name="PhotoUpload"     component={PhotoUploadScreen}     />
-      <Stack.Screen name="BarberTabs"      component={BarberTabs}            />
-    </Stack.Navigator>
-  );
+  if (!user)                  return <AuthNavigator />;
+  if (user.role === 'barber') return <BarberNavigator />;
+  return <ClientNavigator />;
 }
 
 export default function App() {
@@ -142,4 +165,4 @@ const tabStyles = StyleSheet.create({
   label:       { color: '#2a2a2a', fontSize: 9, fontWeight: 'bold', marginTop: 3, letterSpacing: 0.5 },
   labelActive: { color: '#6B8E23' },
   dot:         { position: 'absolute', bottom: -6, width: 4, height: 4, borderRadius: 2, backgroundColor: '#6B8E23' },
-});
+})

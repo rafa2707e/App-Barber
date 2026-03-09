@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   Animated, Alert, TextInput, Image, ActivityIndicator, Clipboard
@@ -6,8 +6,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../AuthContext';
 
-// URL corrigida com o nome exacto da função no Supabase
-const EDGE_URL = 'https://reieucbrjzdfqkdudvnp.supabase.co/functions/v1/create-paymente';
+const EDGE_URL         = 'https://reieucbrjzdfqkdudvnp.supabase.co/functions/v1/create-paymente';
+const NOTIFY_URL       = 'https://reieucbrjzdfqkdudvnp.supabase.co/functions/v1/send-notification';
 
 const SERVICES = [
   { name: 'Corte Simples',      price: 35, icon: '✂️', duration: '30min', bg: '#1a2210' },
@@ -19,7 +19,7 @@ const SERVICES = [
 
 export default function PaymentScreen({ navigation, route }) {
   const { user, supabase } = useAuth();
-  const { selectedDate, selectedTime, barber, service: preService, price: prePrice } = route?.params || {};
+  const { selectedDate, selectedTime, barber: paramBarber, service: preService, price: prePrice } = route?.params || {};
 
   const [step,            setStep]            = useState(preService ? 'method' : 'service');
   const [selectedService, setSelectedService] = useState(preService ? { name: preService, price: prePrice } : null);
@@ -28,6 +28,7 @@ export default function PaymentScreen({ navigation, route }) {
   const [success,         setSuccess]         = useState(false);
   const [pixData,         setPixData]         = useState(null);
   const [appointmentId,   setAppointmentId]   = useState(null);
+  const [barber,          setBarber]          = useState(paramBarber || null);
 
   const [cpf,        setCpf]        = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -40,13 +41,33 @@ export default function PaymentScreen({ navigation, route }) {
 
   const formattedDate = selectedDate ? selectedDate.split('-').reverse().join('/') : '—';
 
-  // ── Cria agendamento no Supabase ───────────────────────────────────────────
+  useEffect(() => { if (!barber) fetchBarber(); }, []);
+
+  const fetchBarber = async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles').select('id, name, specialty, push_token')
+        .eq('role', 'barber').limit(1).single();
+      if (data) setBarber(data);
+    } catch (e) { console.warn('Erro barbeiro:', e); }
+  };
+
   const createAppointment = async (method) => {
+    if (!user?.id) throw new Error('Utilizador não autenticado');
+    let barbeiro = barber;
+    if (!barbeiro?.id) {
+      const { data } = await supabase.from('profiles')
+        .select('id, name, push_token').eq('role', 'barber').limit(1).single();
+      barbeiro = data;
+      setBarber(data);
+    }
+    if (!barbeiro?.id) throw new Error('Nenhum barbeiro encontrado');
+
     const { data, error } = await supabase
       .from('appointments')
       .insert({
         client_id:  user.id,
-        barber_id:  barber?.id || user.id,
+        barber_id:  barbeiro.id,
         service:    selectedService.name,
         price:      selectedService.price,
         date:       selectedDate || new Date().toISOString().split('T')[0],
@@ -55,22 +76,42 @@ export default function PaymentScreen({ navigation, route }) {
         paid:       false,
         status:     'upcoming',
       })
-      .select()
-      .single();
+      .select().single();
 
     if (error) throw new Error('Erro ao criar agendamento: ' + error.message);
+
+    // Notifica o barbeiro em segundo plano
+    notifyBarber(barbeiro, data);
+
     return data.id;
   };
 
-  // ── Chama Edge Function ────────────────────────────────────────────────────
+  // Envia notificação push ao barbeiro
+  const notifyBarber = async (barbeiro, appt) => {
+    try {
+      if (!barbeiro?.push_token) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch(NOTIFY_URL, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          to:    barbeiro.push_token,
+          title: '✂️ Novo agendamento!',
+          body:  `${user.name || 'Cliente'} agendou ${appt.service} para ${appt.date?.split('-').reverse().join('/')} às ${appt.time}`,
+          data:  { appointmentId: appt.id },
+        }),
+      });
+    } catch (e) { console.warn('Erro notificação barbeiro:', e); }
+  };
+
   const callEdge = async (body) => {
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch(EDGE_URL, {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${session?.access_token}`,
-      },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
       body: JSON.stringify(body),
     });
     const json = await res.json();
@@ -78,7 +119,6 @@ export default function PaymentScreen({ navigation, route }) {
     return json;
   };
 
-  // ── PIX ────────────────────────────────────────────────────────────────────
   const handlePix = async () => {
     if (!cpf.trim()) return Alert.alert('Atenção', 'Informe o seu CPF para gerar o PIX.');
     setLoading(true);
@@ -86,36 +126,25 @@ export default function PaymentScreen({ navigation, route }) {
       const apptId = await createAppointment('PIX');
       setAppointmentId(apptId);
       const result = await callEdge({
-        method:        'PIX',
-        amount:        selectedService.price,
-        description:   selectedService.name,
-        appointmentId: apptId,
-        email:         user.email,
-        payerName:     user.name,
-        cpf,
+        method: 'PIX', amount: selectedService.price,
+        description: selectedService.name, appointmentId: apptId,
+        email: user.email, payerName: user.name, cpf,
       });
       setPixData(result);
       setStep('pix');
-    } catch (err) {
-      Alert.alert('Erro PIX', err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { Alert.alert('Erro PIX', err.message); }
+    finally { setLoading(false); }
   };
 
-  // ── Confirmar PIX pago ─────────────────────────────────────────────────────
   const handlePixConfirm = async () => {
     setLoading(true);
     try {
-      await supabase.from('appointments')
-        .update({ paid: true, pay_method: 'PIX' })
-        .eq('id', appointmentId);
+      await supabase.from('appointments').update({ paid: true, pay_method: 'PIX' }).eq('id', appointmentId);
       showSuccess();
     } catch { showSuccess(); }
     finally { setLoading(false); }
   };
 
-  // ── Cartão ─────────────────────────────────────────────────────────────────
   const handleCard = async () => {
     if (!cardNumber || !cardName || !cardExpiry || !cardCVV || !cpf)
       return Alert.alert('Atenção', 'Preenche todos os campos.');
@@ -124,37 +153,25 @@ export default function PaymentScreen({ navigation, route }) {
       const apptId = await createAppointment('Cartao');
       setAppointmentId(apptId);
       const result = await callEdge({
-        method:        'Cartao',
-        amount:        selectedService.price,
-        description:   selectedService.name,
-        appointmentId: apptId,
-        email:         user.email,
-        cpf,
-        token:         'TEST_CARD_TOKEN',
-        installments:  1,
+        method: 'Cartao', amount: selectedService.price,
+        description: selectedService.name, appointmentId: apptId,
+        email: user.email, cpf, token: 'TEST_CARD_TOKEN', installments: 1,
       });
       if (result.success) {
         await supabase.from('appointments').update({ paid: true }).eq('id', apptId);
         showSuccess();
       } else throw new Error(result.message || 'Pagamento recusado');
-    } catch (err) {
-      Alert.alert('Erro no cartão', err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { Alert.alert('Erro no cartão', err.message); }
+    finally { setLoading(false); }
   };
 
-  // ── Local ──────────────────────────────────────────────────────────────────
   const handleLocal = async () => {
     setLoading(true);
     try {
       await createAppointment('Local');
       showSuccess();
-    } catch (err) {
-      Alert.alert('Erro', err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { Alert.alert('Erro', err.message); }
+    finally { setLoading(false); }
   };
 
   const showSuccess = () => {
@@ -165,9 +182,9 @@ export default function PaymentScreen({ navigation, route }) {
     ]).start();
   };
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // TELA SUCESSO
-  // ══════════════════════════════════════════════════════════════════════════
+  const goHome = () => navigation.popToTop();
+
+  // ══ SUCESSO ══════════════════════════════════════════════════════════════
   if (success) {
     return (
       <View style={s.container}>
@@ -180,7 +197,7 @@ export default function PaymentScreen({ navigation, route }) {
               </LinearGradient>
             </View>
             <Text style={s.successTitle}>Agendamento Confirmado!</Text>
-            <Text style={s.successSub}>Até breve na barbearia 💈</Text>
+            <Text style={s.successSub}>O barbeiro foi notificado 💈</Text>
             <View style={s.receiptCard}>
               <View style={s.receiptHead}>
                 <Text style={s.receiptTitle}>🧾  COMPROVANTE</Text>
@@ -203,7 +220,7 @@ export default function PaymentScreen({ navigation, route }) {
                 <Text style={s.receiptTotalValue}>R$ {selectedService?.price},00</Text>
               </View>
             </View>
-            <TouchableOpacity style={s.homeBtn} onPress={() => navigation.replace('ClientTabs')}>
+            <TouchableOpacity style={s.homeBtn} onPress={goHome}>
               <LinearGradient colors={['#4B5320', '#2d3314']} style={s.gradBtn}>
                 <Text style={s.homeBtnText}>VOLTAR AO INÍCIO</Text>
               </LinearGradient>
@@ -214,9 +231,7 @@ export default function PaymentScreen({ navigation, route }) {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // AGUARDAR PIX
-  // ══════════════════════════════════════════════════════════════════════════
+  // ══ PIX AGUARDANDO ═══════════════════════════════════════════════════════
   if (step === 'pix' && pixData) {
     return (
       <View style={s.container}>
@@ -226,21 +241,14 @@ export default function PaymentScreen({ navigation, route }) {
           <Text style={s.title}>Escaneia o QR Code</Text>
           <View style={s.pixBox}>
             {pixData.qrCodeBase64 ? (
-              <Image
-                source={{ uri: `data:image/png;base64,${pixData.qrCodeBase64}` }}
-                style={s.qrImage}
-                resizeMode="contain"
-              />
+              <Image source={{ uri: `data:image/png;base64,${pixData.qrCodeBase64}` }} style={s.qrImage} resizeMode="contain" />
             ) : (
               <View style={s.qrPlaceholder}><View style={s.qrInner} /></View>
             )}
             <Text style={s.qrLabel}>QR CODE PIX · MERCADO PAGO</Text>
             <Text style={s.qrAmount}>R$ {selectedService?.price},00</Text>
           </View>
-          <TouchableOpacity style={s.copyBtn} onPress={() => {
-            Clipboard.setString(pixData.qrCode || '');
-            Alert.alert('Copiado!', 'Chave PIX copiada.');
-          }}>
+          <TouchableOpacity style={s.copyBtn} onPress={() => { Clipboard.setString(pixData.qrCode || ''); Alert.alert('Copiado!', 'Chave PIX copiada.'); }}>
             <LinearGradient colors={['#4B5320', '#2d3314']} style={s.gradBtn}>
               <Text style={s.copyBtnText}>📋  COPIAR CHAVE PIX</Text>
             </LinearGradient>
@@ -252,11 +260,7 @@ export default function PaymentScreen({ navigation, route }) {
           {['Abra o app do seu banco', 'Escaneie o QR Code ou cole a chave', `Confirme o valor: R$ ${selectedService?.price},00`, 'Toque em "Já paguei" abaixo'].map((t, i) => (
             <Text key={i} style={s.pixStep}>{i + 1}. {t}</Text>
           ))}
-          <TouchableOpacity
-            style={[s.confirmBtn, loading && { opacity: 0.6 }]}
-            onPress={handlePixConfirm}
-            disabled={loading}
-          >
+          <TouchableOpacity style={[s.confirmBtn, loading && { opacity: 0.6 }]} onPress={handlePixConfirm} disabled={loading}>
             <LinearGradient colors={['#4B5320', '#2d3314']} style={s.gradBtn}>
               {loading ? <ActivityIndicator color="#FFF" /> : <Text style={s.confirmBtnText}>JÁ PAGUEI ✓</Text>}
             </LinearGradient>
@@ -269,9 +273,7 @@ export default function PaymentScreen({ navigation, route }) {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // PASSO 1 — SERVIÇO
-  // ══════════════════════════════════════════════════════════════════════════
+  // ══ SERVIÇO ══════════════════════════════════════════════════════════════
   if (step === 'service') {
     return (
       <View style={s.container}>
@@ -283,15 +285,9 @@ export default function PaymentScreen({ navigation, route }) {
           {SERVICES.map(svc => {
             const sel = selectedService?.name === svc.name;
             return (
-              <TouchableOpacity
-                key={svc.name}
-                style={[s.serviceCard, sel && s.serviceCardSel]}
-                onPress={() => setSelectedService(svc)}
-              >
+              <TouchableOpacity key={svc.name} style={[s.serviceCard, sel && s.serviceCardSel]} onPress={() => setSelectedService(svc)}>
                 {sel && <LinearGradient colors={['#1a2210','#111']} style={[StyleSheet.absoluteFill,{borderRadius:16}]} />}
-                <View style={[s.svcIconBox, { backgroundColor: svc.bg }]}>
-                  <Text style={s.svcIcon}>{svc.icon}</Text>
-                </View>
+                <View style={[s.svcIconBox, { backgroundColor: svc.bg }]}><Text style={s.svcIcon}>{svc.icon}</Text></View>
                 <View style={s.svcInfo}>
                   <Text style={[s.svcName, sel && { color: '#FFF' }]}>{svc.name}</Text>
                   <Text style={s.svcDuration}>⏱ {svc.duration}</Text>
@@ -320,9 +316,7 @@ export default function PaymentScreen({ navigation, route }) {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // PASSO 2 — MÉTODO DE PAGAMENTO
-  // ══════════════════════════════════════════════════════════════════════════
+  // ══ PAGAMENTO ════════════════════════════════════════════════════════════
   return (
     <View style={s.container}>
       <LinearGradient colors={['#000', '#0d0f08', '#000']} style={StyleSheet.absoluteFill} />
@@ -332,16 +326,9 @@ export default function PaymentScreen({ navigation, route }) {
 
         <View style={s.summaryBox}>
           <Text style={s.sectionLabel}>RESUMO</Text>
-          <View style={s.summaryRow}>
-            <Text style={s.summaryLabel2}>Serviço</Text>
-            <Text style={s.summaryVal}>{selectedService?.name}</Text>
-          </View>
-          {selectedDate && (
-            <View style={s.summaryRow}>
-              <Text style={s.summaryLabel2}>Data / Hora</Text>
-              <Text style={s.summaryVal}>{formattedDate}  {selectedTime}</Text>
-            </View>
-          )}
+          <View style={s.summaryRow}><Text style={s.summaryLabel2}>Serviço</Text><Text style={s.summaryVal}>{selectedService?.name}</Text></View>
+          {barber && <View style={s.summaryRow}><Text style={s.summaryLabel2}>Barbeiro</Text><Text style={s.summaryVal}>{barber.name}</Text></View>}
+          {selectedDate && <View style={s.summaryRow}><Text style={s.summaryLabel2}>Data / Hora</Text><Text style={s.summaryVal}>{formattedDate}  {selectedTime}</Text></View>}
           <View style={[s.summaryRow, s.summaryTotalRow]}>
             <Text style={s.summaryTotalLabel}>TOTAL</Text>
             <Text style={s.summaryTotalVal}>R$ {selectedService?.price},00</Text>
@@ -349,15 +336,11 @@ export default function PaymentScreen({ navigation, route }) {
         </View>
 
         {[
-          { id: 'PIX',    icon: '⚡', title: 'PIX',               sub: 'Instantâneo · Mercado Pago · QR Code real' },
-          { id: 'Cartao', icon: '💳', title: 'Cartão de Crédito',  sub: 'Visa, Mastercard, Elo · Mercado Pago'     },
-          { id: 'Local',  icon: '🏪', title: 'Pagar no Local',     sub: 'Pague na barbearia no dia do corte'       },
+          { id: 'PIX',    icon: '⚡', title: 'PIX',              sub: 'Instantâneo · Mercado Pago · QR Code real' },
+          { id: 'Cartao', icon: '💳', title: 'Cartão de Crédito', sub: 'Visa, Mastercard, Elo · Mercado Pago'     },
+          { id: 'Local',  icon: '🏪', title: 'Pagar no Local',    sub: 'Pague na barbearia no dia do corte'       },
         ].map(m => (
-          <TouchableOpacity
-            key={m.id}
-            style={[s.methodCard, payMethod === m.id && s.methodCardSel]}
-            onPress={() => setPayMethod(m.id)}
-          >
+          <TouchableOpacity key={m.id} style={[s.methodCard, payMethod === m.id && s.methodCardSel]} onPress={() => setPayMethod(m.id)}>
             <View style={s.methodIconBox}><Text style={s.methodIcon}>{m.icon}</Text></View>
             <View style={s.methodInfo}>
               <Text style={[s.methodTitle, payMethod === m.id && { color: '#FFF' }]}>{m.title}</Text>
@@ -370,15 +353,7 @@ export default function PaymentScreen({ navigation, route }) {
         {(payMethod === 'PIX' || payMethod === 'Cartao') && (
           <View style={s.fieldBox}>
             <Text style={s.fieldLabel}>CPF DO PAGADOR</Text>
-            <TextInput
-              style={s.fieldInput}
-              placeholder="000.000.000-00"
-              placeholderTextColor="#333"
-              value={cpf}
-              onChangeText={setCpf}
-              keyboardType="numeric"
-              maxLength={14}
-            />
+            <TextInput style={s.fieldInput} placeholder="000.000.000-00" placeholderTextColor="#333" value={cpf} onChangeText={setCpf} keyboardType="numeric" maxLength={14} />
           </View>
         )}
 
@@ -417,19 +392,13 @@ export default function PaymentScreen({ navigation, route }) {
         )}
 
         {payMethod && (
-          <TouchableOpacity
-            style={[s.confirmBtn, loading && { opacity: 0.6 }]}
-            disabled={loading}
-            onPress={payMethod === 'PIX' ? handlePix : payMethod === 'Cartao' ? handleCard : handleLocal}
-          >
+          <TouchableOpacity style={[s.confirmBtn, loading && { opacity: 0.6 }]} disabled={loading}
+            onPress={payMethod === 'PIX' ? handlePix : payMethod === 'Cartao' ? handleCard : handleLocal}>
             <LinearGradient colors={['#4B5320', '#2d3314']} style={s.gradBtn}>
-              {loading
-                ? <ActivityIndicator color="#FFF" />
-                : <Text style={s.confirmBtnText}>
-                    {payMethod === 'PIX'    ? '⚡ GERAR QR CODE PIX →'    :
-                     payMethod === 'Cartao' ? '💳 PAGAR COM CARTÃO →'     :
-                     '✅ CONFIRMAR AGENDAMENTO →'}
-                  </Text>
+              {loading ? <ActivityIndicator color="#FFF" /> :
+                <Text style={s.confirmBtnText}>
+                  {payMethod === 'PIX' ? '⚡ GERAR QR CODE PIX →' : payMethod === 'Cartao' ? '💳 PAGAR COM CARTÃO →' : '✅ CONFIRMAR AGENDAMENTO →'}
+                </Text>
               }
             </LinearGradient>
           </TouchableOpacity>
@@ -453,7 +422,6 @@ const s = StyleSheet.create({
   gradBtn:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
   backBtn:    { position: 'absolute', top: 14, left: 20, padding: 8 },
   backText:   { color: '#4B5320', fontWeight: 'bold', fontSize: 13 },
-
   serviceCard:    { backgroundColor: '#0d0d0d', borderRadius: 16, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a', overflow: 'hidden', position: 'relative' },
   serviceCardSel: { borderColor: '#4B5320' },
   svcIconBox:     { width: 50, height: 50, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
@@ -467,7 +435,6 @@ const s = StyleSheet.create({
   fixedFooter:    { position: 'absolute', bottom: 36, left: 20, right: 20 },
   nextBtn:        { height: 58, borderRadius: 16, overflow: 'hidden' },
   nextBtnText:    { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
-
   summaryBox:        { backgroundColor: '#0d0d0d', borderRadius: 18, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: '#1a1a1a' },
   summaryRow:        { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
   summaryLabel2:     { color: '#555', fontSize: 12 },
@@ -475,7 +442,6 @@ const s = StyleSheet.create({
   summaryTotalRow:   { borderTopWidth: 1, borderTopColor: '#1a1a1a', marginTop: 8, paddingTop: 12 },
   summaryTotalLabel: { color: '#888', fontSize: 12, fontWeight: 'bold' },
   summaryTotalVal:   { color: '#6B8E23', fontSize: 22, fontWeight: 'bold' },
-
   methodCard:    { backgroundColor: '#0d0d0d', borderRadius: 16, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a' },
   methodCardSel: { borderColor: '#4B5320', backgroundColor: '#0d1208' },
   methodIconBox: { width: 48, height: 48, backgroundColor: '#1a1a1a', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
@@ -484,21 +450,17 @@ const s = StyleSheet.create({
   methodTitle:   { color: '#999', fontWeight: 'bold', fontSize: 15, marginBottom: 3 },
   methodSub:     { color: '#444', fontSize: 11 },
   methodArrow:   { color: '#222', fontSize: 26 },
-
   fieldBox:   { marginBottom: 14 },
   fieldLabel: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 8 },
   fieldInput: { backgroundColor: '#0d0d0d', borderRadius: 12, padding: 14, color: '#FFF', borderWidth: 1, borderColor: '#1a1a1a', fontSize: 14 },
-
   cardForm:         { backgroundColor: '#0d0d0d', borderRadius: 20, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: '#1a1a1a' },
   cardPreview:      { borderRadius: 16, overflow: 'hidden', marginBottom: 18, height: 110 },
   cardPreviewGrad:  { flex: 1, padding: 20, justifyContent: 'space-between' },
   cardPreviewBank:  { color: '#6B8E23', fontWeight: 'bold', fontSize: 13, letterSpacing: 2 },
   cardPreviewNum:   { color: '#FFF', fontSize: 16, letterSpacing: 3, fontWeight: 'bold' },
   cardPreviewLabel: { color: '#555', fontSize: 10, letterSpacing: 1 },
-
   confirmBtn:     { height: 56, borderRadius: 16, overflow: 'hidden', marginTop: 8 },
   confirmBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 0.5 },
-
   pixBox:        { alignItems: 'center', backgroundColor: '#0d0d0d', borderRadius: 20, padding: 24, marginBottom: 16, borderWidth: 1, borderColor: '#1a2210' },
   qrImage:       { width: 200, height: 200, marginBottom: 12 },
   qrPlaceholder: { width: 160, height: 160, backgroundColor: '#111', borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#4B5320', marginBottom: 12 },
@@ -511,7 +473,6 @@ const s = StyleSheet.create({
   pixKeyLabel:   { color: '#444', fontSize: 8, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6 },
   pixKeyValue:   { color: '#FFF', fontSize: 11, lineHeight: 18 },
   pixStep:       { color: '#555', fontSize: 12, marginBottom: 8, lineHeight: 20 },
-
   successScroll:     { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24, paddingVertical: 60 },
   successRing:       { marginBottom: 28 },
   successCircle:     { width: 110, height: 110, borderRadius: 55, justifyContent: 'center', alignItems: 'center' },

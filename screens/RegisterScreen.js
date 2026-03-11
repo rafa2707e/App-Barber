@@ -5,7 +5,7 @@ import {
   Platform, ScrollView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../AuthContext'; // ← raiz do projecto
+import { useAuth } from '../AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -27,22 +27,18 @@ export default function RegisterScreen({ navigation }) {
   }, []);
 
   const handleRegister = async () => {
-    if (!name.trim())        return Alert.alert('Atenção', 'Informe o seu nome.');
-    if (!email.trim())       return Alert.alert('Atenção', 'Informe o seu e-mail.');
-    if (!phone.trim())       return Alert.alert('Atenção', 'Informe o seu telefone.');
-    if (password.length < 4) return Alert.alert('Atenção', 'Senha mínimo 4 caracteres.');
-    if (password !== confirm) return Alert.alert('Atenção', 'As senhas não coincidem.');
+    if (!name.trim())         return Alert.alert('Atenção', 'Informe o seu nome.');
+    if (!email.trim())        return Alert.alert('Atenção', 'Informe o seu e-mail.');
+    if (!phone.trim())        return Alert.alert('Atenção', 'Informe o seu telefone.');
+    if (password.length < 4)  return Alert.alert('Atenção', 'Senha mínimo 4 caracteres.');
+    if (password !== confirm)  return Alert.alert('Atenção', 'As senhas não coincidem.');
     if (role === 'barber' && !specialty.trim())
       return Alert.alert('Atenção', 'Informe a sua especialidade.');
 
     setLoading(true);
     try {
-      const user = await register({ name: name.trim(), email: email.trim(), password, role, phone: phone.trim(), specialty });
-      if (user.role === 'barber') {
-        navigation.replace('BarberTabs');
-      } else {
-        navigation.replace('ClientTabs');
-      }
+      await register(email.trim(), password, name.trim(), role);
+      // Sem navigation.replace — App.js redireciona automaticamente pelo role
     } catch (err) {
       Alert.alert('Erro no cadastro', err.message);
     } finally {
@@ -51,10 +47,7 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#000' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#000' }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <LinearGradient colors={['#000', '#1a1c12', '#000']} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', width: '100%' }}>
@@ -63,37 +56,26 @@ export default function RegisterScreen({ navigation }) {
           <Text style={styles.title}>Criar Conta</Text>
           <Text style={styles.subtitle}>Junte-se ao pelotão</Text>
 
-          {/* Selector de tipo de conta */}
           <View style={styles.roleRow}>
-            <TouchableOpacity
-              style={[styles.roleBtn, role === 'client' && styles.roleBtnActive]}
-              onPress={() => setRole('client')}
-            >
+            <TouchableOpacity style={[styles.roleBtn, role === 'client' && styles.roleBtnActive]} onPress={() => setRole('client')}>
               <Text style={styles.roleIcon}>👤</Text>
               <Text style={[styles.roleLabel, role === 'client' && styles.roleLabelActive]}>Cliente</Text>
               <Text style={styles.roleDesc}>Quero agendar cortes</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.roleBtn, role === 'barber' && styles.roleBtnActive]}
-              onPress={() => setRole('barber')}
-            >
+            <TouchableOpacity style={[styles.roleBtn, role === 'barber' && styles.roleBtnActive]} onPress={() => setRole('barber')}>
               <Text style={styles.roleIcon}>✂️</Text>
               <Text style={[styles.roleLabel, role === 'barber' && styles.roleLabelActive]}>Barbeiro</Text>
               <Text style={styles.roleDesc}>Quero gerir agenda</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Campos */}
           <View style={styles.form}>
-            <Field label="NOME COMPLETO"  value={name}  onChange={setName}  placeholder="Seu nome completo" />
-            <Field label="E-MAIL"         value={email} onChange={setEmail} placeholder="seu@email.com"
-              keyboardType="email-address" autoCapitalize="none" />
-            <Field label="TELEFONE"       value={phone} onChange={setPhone} placeholder="(11) 99999-9999"
-              keyboardType="phone-pad" />
+            <Field label="NOME COMPLETO" value={name}  onChange={setName}  placeholder="Seu nome completo" />
+            <Field label="E-MAIL"        value={email} onChange={setEmail} placeholder="seu@email.com" keyboardType="email-address" autoCapitalize="none" />
+            <Field label="TELEFONE"      value={phone} onChange={setPhone} placeholder="(11) 99999-9999" keyboardType="phone-pad" />
 
             {role === 'barber' && (
-              <Field label="ESPECIALIDADE" value={specialty} onChange={setSpecialty}
-                placeholder="Ex: Degradê, Barba, Visagismo..." />
+              <Field label="ESPECIALIDADE" value={specialty} onChange={setSpecialty} placeholder="Ex: Degradê, Barba, Visagismo..." />
             )}
 
             <View style={styles.fieldBox}>
@@ -135,11 +117,7 @@ export default function RegisterScreen({ navigation }) {
               <Text style={{ color: '#6B8E23' }}>Política de Privacidade</Text>.
             </Text>
 
-            <TouchableOpacity
-              style={[styles.registerBtn, loading && { opacity: 0.6 }]}
-              onPress={handleRegister}
-              disabled={loading}
-            >
+            <TouchableOpacity style={[styles.registerBtn, loading && { opacity: 0.6 }]} onPress={handleRegister} disabled={loading}>
               <LinearGradient colors={['#4B5320', '#2d3314']} style={styles.gradBtn}>
                 <Text style={styles.registerBtnText}>
                   {loading ? 'CRIANDO CONTA...' : `CRIAR CONTA ${role === 'barber' ? '✂️' : '👤'}`}
@@ -183,33 +161,24 @@ const styles = StyleSheet.create({
   badge:    { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 8 },
   title:    { color: '#FFF', fontSize: 30, fontWeight: 'bold' },
   subtitle: { color: '#444', fontSize: 13, marginBottom: 28, marginTop: 4 },
-
-  roleRow: { flexDirection: 'row', gap: 12, width: '100%', marginBottom: 24 },
-  roleBtn: {
-    flex: 1, backgroundColor: '#0d0d0d', borderRadius: 18, padding: 18,
-    alignItems: 'center', borderWidth: 1.5, borderColor: '#1a1a1a',
-  },
+  roleRow:         { flexDirection: 'row', gap: 12, width: '100%', marginBottom: 24 },
+  roleBtn:         { flex: 1, backgroundColor: '#0d0d0d', borderRadius: 18, padding: 18, alignItems: 'center', borderWidth: 1.5, borderColor: '#1a1a1a' },
   roleBtnActive:   { borderColor: '#6B8E23', backgroundColor: '#1a1f0a' },
   roleIcon:        { fontSize: 28, marginBottom: 8 },
   roleLabel:       { color: '#666', fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
   roleLabelActive: { color: '#FFF' },
   roleDesc:        { color: '#333', fontSize: 10, textAlign: 'center' },
-
-  form:     { width: '100%' },
-  fieldBox: { marginBottom: 14 },
-  label:    { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 7, marginLeft: 4 },
-  input:    {
-    height: 50, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12,
-    paddingHorizontal: 15, color: '#FFF', borderWidth: 1,
-    borderColor: 'rgba(75,83,32,0.2)', fontSize: 14,
-  },
+  form:       { width: '100%' },
+  fieldBox:   { marginBottom: 14 },
+  label:      { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 7, marginLeft: 4 },
+  input:      { height: 50, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, paddingHorizontal: 15, color: '#FFF', borderWidth: 1, borderColor: 'rgba(75,83,32,0.2)', fontSize: 14 },
   passRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
   eyeBtn:     { padding: 10 },
   errorText:  { color: '#8e1a1a', fontSize: 11, marginTop: 5, marginLeft: 4 },
   termsText:  { color: '#444', fontSize: 11, textAlign: 'center', marginBottom: 20, lineHeight: 18 },
-  registerBtn: { height: 56, borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
-  gradBtn:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  registerBtn:     { height: 56, borderRadius: 16, overflow: 'hidden', marginBottom: 16 },
+  gradBtn:         { flex: 1, justifyContent: 'center', alignItems: 'center' },
   registerBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
-  backLink:    { alignItems: 'center', paddingVertical: 8 },
-  backLinkText: { color: '#666', fontSize: 14 },
+  backLink:        { alignItems: 'center', paddingVertical: 8 },
+  backLinkText:    { color: '#666', fontSize: 14 },
 });

@@ -5,7 +5,7 @@ import {
   Platform, ScrollView, Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../AuthContext'; // ← raiz do projecto
+import { useAuth } from '../AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -28,13 +28,8 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const user = await login(email.trim(), password);
-      // Redireciona conforme o tipo de conta
-      if (user.role === 'barber') {
-        navigation.replace('BarberTabs');
-      } else {
-        navigation.replace('ClientTabs');
-      }
+      await login(email.trim(), password);
+      // Sem navigation.replace — App.js redireciona automaticamente pelo role
     } catch (err) {
       Alert.alert('Erro ao entrar', err.message);
     } finally {
@@ -43,10 +38,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#000' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#000' }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <LinearGradient colors={['#000', '#1a1c12', '#000']} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', width: '100%' }}>
@@ -114,13 +106,6 @@ export default function LoginScreen({ navigation }) {
                 <Text style={{ color: '#6B8E23', fontWeight: 'bold' }}>Cadastre-se</Text>
               </Text>
             </TouchableOpacity>
-
-            {/* Contas de teste */}
-            <View style={styles.hintBox}>
-              <Text style={styles.hintTitle}>👤  CONTAS DE TESTE</Text>
-              <Text style={styles.hintText}>Cliente  →  cliente@studio.com  /  1234</Text>
-              <Text style={styles.hintText}>Barbeiro →  barbeiro@studio.com  /  1234</Text>
-            </View>
           </View>
         </Animated.View>
       </ScrollView>
@@ -130,35 +115,21 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20, paddingVertical: 50 },
-  logo: { width: 160, height: 160, marginBottom: 16 },
-  card: {
-    width: width * 0.9, padding: 26, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1, borderColor: 'rgba(75,83,32,0.3)', alignItems: 'center',
-  },
+  logo:   { width: 160, height: 160, marginBottom: 16 },
+  card:   { width: width * 0.9, padding: 26, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(75,83,32,0.3)', alignItems: 'center' },
   badge:  { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 5 },
   title:  { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 28 },
-  fieldBox: { width: '100%', marginBottom: 14 },
-  label:  { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 7, marginLeft: 4 },
-  input:  {
-    height: 50, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12,
-    paddingHorizontal: 15, color: '#FFF', borderWidth: 1,
-    borderColor: 'rgba(75,83,32,0.2)', fontSize: 14,
-  },
+  fieldBox:    { width: '100%', marginBottom: 14 },
+  label:       { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 7, marginLeft: 4 },
+  input:       { height: 50, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, paddingHorizontal: 15, color: '#FFF', borderWidth: 1, borderColor: 'rgba(75,83,32,0.2)', fontSize: 14 },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn:  { padding: 10 },
-  eyeIcon: { fontSize: 18 },
-  loginBtn: { width: '100%', height: 54, borderRadius: 14, overflow: 'hidden', marginTop: 8 },
-  gradBtn:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  btnText:  { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
-  divider:  { flexDirection: 'row', alignItems: 'center', width: '100%', marginVertical: 18 },
+  eyeBtn:      { padding: 10 },
+  eyeIcon:     { fontSize: 18 },
+  loginBtn:    { width: '100%', height: 54, borderRadius: 14, overflow: 'hidden', marginTop: 8 },
+  gradBtn:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  btnText:     { color: '#FFF', fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
+  divider:     { flexDirection: 'row', alignItems: 'center', width: '100%', marginVertical: 18 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#1a1a1a' },
   dividerText: { color: '#333', marginHorizontal: 12, fontSize: 12 },
   registerText: { color: '#666', fontSize: 14 },
-  hintBox: {
-    marginTop: 20, backgroundColor: '#0d0d0d', borderRadius: 12,
-    padding: 14, width: '100%', borderWidth: 1, borderColor: '#1a1a1a',
-  },
-  hintTitle: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 8 },
-  hintText:  { color: '#444', fontSize: 11, marginBottom: 3 },
 });

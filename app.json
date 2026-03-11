@@ -12,6 +12,12 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+
+    "extra": {
+      "eas": {
+        "projectId": "b0645a8f-b721-4895-aaec-467f78bf8ee1"
+      }
+    },
     "ios": {
       "supportsTablet": true
     },

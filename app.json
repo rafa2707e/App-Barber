@@ -12,26 +12,35 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "extra": {
       "eas": {
         "projectId": "b0645a8f-b721-4895-aaec-467f78bf8ee1"
       }
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.studiohair.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.studiohair.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "com.googleusercontent.apps.YOUR_GOOGLE_CLIENT_ID",
-    "facebookScheme": "fbYOUR_FACEBOOK_APP_ID"
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#4B5320",
+          "sounds": []
+        }
+      ]
+    ]
   }
 }

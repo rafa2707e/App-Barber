@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AuthProvider, useAuth } from './AuthContext';
 
+import OnboardingScreen      from './screens/Onboardingscreen';
 import LoginScreen           from './screens/LoginScreen';
 import RegisterScreen        from './screens/RegisterScreen';
 import HomeScreen            from './screens/HomeScreen';
@@ -33,12 +35,8 @@ function CustomTabBar({ tabs, state, navigation }) {
               style={tabStyles.tabItem}
               onPress={() => navigation.navigate(tab.route)}
             >
-              <Text style={isFocused ? tabStyles.iconActive : tabStyles.icon}>
-                {tab.icon}
-              </Text>
-              <Text style={[tabStyles.label, isFocused && tabStyles.labelActive]}>
-                {tab.label}
-              </Text>
+              <Text style={isFocused ? tabStyles.iconActive : tabStyles.icon}>{tab.icon}</Text>
+              <Text style={[tabStyles.label, isFocused && tabStyles.labelActive]}>{tab.label}</Text>
               {isFocused && <View style={tabStyles.dot} />}
             </TouchableOpacity>
           );
@@ -55,10 +53,7 @@ function ClientTabs() {
     { route: 'Profile',        icon: '👤', label: 'Perfil'  },
   ];
   return (
-    <Tab.Navigator
-      tabBar={props => <CustomTabBar tabs={TABS} {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
+    <Tab.Navigator tabBar={props => <CustomTabBar tabs={TABS} {...props} />} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="Home"           component={HomeScreen}           />
       <Tab.Screen name="MyAppointments" component={MyAppointmentsScreen} />
       <Tab.Screen name="Profile"        component={ProfileScreen}        />
@@ -72,17 +67,13 @@ function BarberTabs() {
     { route: 'BarberProfile', icon: '👤', label: 'Perfil'  },
   ];
   return (
-    <Tab.Navigator
-      tabBar={props => <CustomTabBar tabs={TABS} {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
+    <Tab.Navigator tabBar={props => <CustomTabBar tabs={TABS} {...props} />} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="BarberAgenda"  component={BarberAgendaScreen} />
       <Tab.Screen name="BarberProfile" component={ProfileScreen}      />
     </Tab.Navigator>
   );
 }
 
-// Navigator para clientes — inclui todos os ecrãs necessários
 function ClientNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -96,7 +87,6 @@ function ClientNavigator() {
   );
 }
 
-// Navigator para barbeiros
 function BarberNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -105,7 +95,6 @@ function BarberNavigator() {
   );
 }
 
-// Navigator para utilizadores não autenticados
 function AuthNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -117,8 +106,30 @@ function AuthNavigator() {
 
 function RootNavigator() {
   const { user, loading } = useAuth();
+  const [onboardingDone, setOnboardingDone] = useState(null);
 
-  if (loading) {
+  useEffect(() => {
+    if (user?.id) checkOnboarding(user.id);
+    else if (!loading) setOnboardingDone(true); // sem user, não mostra onboarding
+  }, [user, loading]);
+
+  const checkOnboarding = async (userId) => {
+    // Chave única por utilizador
+    const key  = `onboarding_done_${userId}`;
+    const done = await AsyncStorage.getItem(key);
+    setOnboardingDone(done === 'true');
+  };
+
+  const finishOnboarding = async () => {
+    if (user?.id) {
+      const key = `onboarding_done_${user.id}`;
+      await AsyncStorage.setItem(key, 'true');
+    }
+    setOnboardingDone(true);
+  };
+
+  // Loading
+  if (loading || onboardingDone === null) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator color="#6B8E23" size="large" />
@@ -129,8 +140,23 @@ function RootNavigator() {
     );
   }
 
-  if (!user)                  return <AuthNavigator />;
+  // Sem utilizador → Login
+  if (!user) return <AuthNavigator />;
+
+  // Primeiro login → Onboarding personalizado
+  if (!onboardingDone) {
+    return (
+      <OnboardingScreen
+        role={user.role}
+        onFinish={finishOnboarding}
+      />
+    );
+  }
+
+  // Barbeiro
   if (user.role === 'barber') return <BarberNavigator />;
+
+  // Cliente
   return <ClientNavigator />;
 }
 
@@ -145,7 +171,7 @@ export default function App() {
 }
 
 const tabStyles = StyleSheet.create({
-  wrapper: { position: 'absolute', bottom: 28, left: 20, right: 20 },
+  wrapper:   { position: 'absolute', bottom: 28, left: 20, right: 20 },
   container: {
     flexDirection: 'row',
     backgroundColor: 'rgba(6,6,6,0.98)',
@@ -165,4 +191,4 @@ const tabStyles = StyleSheet.create({
   label:       { color: '#2a2a2a', fontSize: 9, fontWeight: 'bold', marginTop: 3, letterSpacing: 0.5 },
   labelActive: { color: '#6B8E23' },
   dot:         { position: 'absolute', bottom: -6, width: 4, height: 4, borderRadius: 2, backgroundColor: '#6B8E23' },
-})
+});

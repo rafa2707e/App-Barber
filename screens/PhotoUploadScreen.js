@@ -74,6 +74,8 @@ export default function App() {
   // API do Gemini para fazer a chamada 
 
   // ✅ FIX: API Key agora é inserida pelo utilizador em runtime, não hardcoded
+
+  // Chamada da API do Gemini pafa fazer a analise
   const [apiKey, setApiKey]   = useState('AIzaSyAuqRGjNslr4uE_lFSW6mZfuoINEEmKrjw');
   const [showKeyInput, setShowKeyInput] = useState(false);
 
@@ -111,7 +113,7 @@ export default function App() {
       Alert.alert("Erro", "Não foi possível carregar a imagem selecionada.");
     }
   };
-// Chamada da API do Gemini pafa fazer a analise 
+ 
   const analisarVisagismo = async () => {
     
     if (!apiKey.trim()) {

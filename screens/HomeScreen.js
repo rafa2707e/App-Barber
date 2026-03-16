@@ -57,7 +57,7 @@ export default function HomeScreen({ navigation, route }) {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcomeText}>OPERADOR ATIVO</Text>
-            <Text style={styles.userName}>{user?.name?.toUpperCase() || 'BOA CRIA'}</Text>
+            <Text style={styles.userName}>{user?.name?.toUpperCase() || 'SEJA BEM VINDO' + user }</Text>
           </View>
           <View style={styles.avatarGlow}>
             <Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase() || 'S'}</Text>

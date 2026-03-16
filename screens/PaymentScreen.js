@@ -10,9 +10,9 @@ const EDGE_URL         = 'https://reieucbrjzdfqkdudvnp.supabase.co/functions/v1/
 const NOTIFY_URL       = 'https://reieucbrjzdfqkdudvnp.supabase.co/functions/v1/send-notification';
 
 const SERVICES = [
-  { name: 'Corte Simples',      price: 35, icon: '✂️', duration: '30min', bg: '#1a2210' },
+  { name: 'Corte',      price: 40, icon: '✂️', duration: '30min', bg: '#1a2210' },
   { name: 'Corte + Barba',      price: 55, icon: '🪒', duration: '50min', bg: '#1a1810' },
-  { name: 'Degradê',            price: 45, icon: '💈', duration: '40min', bg: '#101a1a' },
+  { name: 'Luzes',            price: 60, icon: '💈', duration: '40min', bg: '#101a1a' },
   { name: 'Visagismo Completo', price: 80, icon: '👑', duration: '75min', bg: '#1a1020' },
   { name: 'Barba',              price: 25, icon: '🧔', duration: '25min', bg: '#101510' },
 ];

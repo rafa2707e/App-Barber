@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AuthProvider, useAuth } from './AuthContext';
 
-import OnboardingScreen      from './screens/Onboardingscreen';
+import OnboardingScreen      from './screens/OnboardingScreen';
 import LoginScreen           from './screens/LoginScreen';
 import RegisterScreen        from './screens/RegisterScreen';
 import HomeScreen            from './screens/HomeScreen';
@@ -19,6 +19,7 @@ import MyAppointmentsScreen  from './screens/MyAppointmentsScreen';
 import PhotoUploadScreen     from './screens/PhotoUploadScreen';
 import ProfileScreen         from './screens/ProfileScreen';
 import BarberAgendaScreen    from './screens/BarberAgendaScreen';
+import BarberScheduleScreen  from './screens/BarberScheduleScreen ';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -63,13 +64,15 @@ function ClientTabs() {
 
 function BarberTabs() {
   const TABS = [
-    { route: 'BarberAgenda',  icon: '📅', label: 'Agenda' },
-    { route: 'BarberProfile', icon: '👤', label: 'Perfil'  },
+    { route: 'BarberAgenda',    icon: '📅', label: 'Agenda'   },
+    { route: 'BarberSchedule',  icon: '⚙️', label: 'Horários' },
+    { route: 'BarberProfile',   icon: '👤', label: 'Perfil'   },
   ];
   return (
     <Tab.Navigator tabBar={props => <CustomTabBar tabs={TABS} {...props} />} screenOptions={{ headerShown: false }}>
-      <Tab.Screen name="BarberAgenda"  component={BarberAgendaScreen} />
-      <Tab.Screen name="BarberProfile" component={ProfileScreen}      />
+      <Tab.Screen name="BarberAgenda"   component={BarberAgendaScreen}   />
+      <Tab.Screen name="BarberSchedule" component={BarberScheduleScreen} />
+      <Tab.Screen name="BarberProfile"  component={ProfileScreen}        />
     </Tab.Navigator>
   );
 }
@@ -110,11 +113,10 @@ function RootNavigator() {
 
   useEffect(() => {
     if (user?.id) checkOnboarding(user.id);
-    else if (!loading) setOnboardingDone(true); // sem user, não mostra onboarding
+    else if (!loading) setOnboardingDone(true);
   }, [user, loading]);
 
   const checkOnboarding = async (userId) => {
-    // Chave única por utilizador
     const key  = `onboarding_done_${userId}`;
     const done = await AsyncStorage.getItem(key);
     setOnboardingDone(done === 'true');
@@ -122,13 +124,11 @@ function RootNavigator() {
 
   const finishOnboarding = async () => {
     if (user?.id) {
-      const key = `onboarding_done_${user.id}`;
-      await AsyncStorage.setItem(key, 'true');
+      await AsyncStorage.setItem(`onboarding_done_${user.id}`, 'true');
     }
     setOnboardingDone(true);
   };
 
-  // Loading
   if (loading || onboardingDone === null) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
@@ -140,23 +140,9 @@ function RootNavigator() {
     );
   }
 
-  // Sem utilizador → Login
-  if (!user) return <AuthNavigator />;
-
-  // Primeiro login → Onboarding personalizado
-  if (!onboardingDone) {
-    return (
-      <OnboardingScreen
-        role={user.role}
-        onFinish={finishOnboarding}
-      />
-    );
-  }
-
-  // Barbeiro
+  if (!user)           return <AuthNavigator />;
+  if (!onboardingDone) return <OnboardingScreen role={user.role} onFinish={finishOnboarding} />;
   if (user.role === 'barber') return <BarberNavigator />;
-
-  // Cliente
   return <ClientNavigator />;
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../AuthContext';
 
@@ -13,47 +13,102 @@ const TIMES = [
 
 export default function TimeSelectionScreen({ navigation, route }) {
   const { supabase } = useAuth();
-  const [selectedTime,  setSelectedTime]  = useState(null);
-  const [occupiedTimes, setOccupiedTimes] = useState([]);
-  const [loading,       setLoading]       = useState(true);
+  const [selectedTime,   setSelectedTime]   = useState(null);
+  const [occupiedTimes,  setOccupiedTimes]  = useState([]);
+  const [blockedTimes,   setBlockedTimes]   = useState([]);
+  const [isClosed,       setIsClosed]       = useState(false);
+  const [isDayBlocked,   setIsDayBlocked]   = useState(false);
+  const [loading,        setLoading]        = useState(true);
 
   const { selectedDate, barber, service, price } = route?.params || {};
   const formattedDate = selectedDate ? selectedDate.split('-').reverse().join('/') : '—';
   const periods = ['Manhã', 'Tarde', 'Noite'];
   const icons   = { 'Manhã': '🌅', 'Tarde': '☀️', 'Noite': '🌙' };
 
-  useEffect(() => { if (selectedDate) fetchOccupied(); }, [selectedDate]);
+  useEffect(() => { if (selectedDate) fetchAll(); }, [selectedDate]);
 
-  const fetchOccupied = async () => {
+  const fetchAll = async () => {
     setLoading(true);
     try {
+      // Busca barbeiro
       let barberId = barber?.id;
       if (!barberId) {
         const { data } = await supabase
           .from('profiles').select('id').eq('role', 'barber').limit(1).single();
         barberId = data?.id;
       }
-      const { data, error } = await supabase
+
+      // Busca horários já agendados
+      const { data: appts } = await supabase
         .from('appointments')
         .select('time')
         .eq('date', selectedDate)
         .eq('barber_id', barberId)
         .neq('status', 'cancelled');
 
-      if (!error && data) setOccupiedTimes(data.map(a => a.time));
+      // Busca bloqueios do barbeiro
+      const { data: blocks } = await supabase
+        .from('blocked_slots')
+        .select('*')
+        .eq('barber_id', barberId);
+
+      if (appts) setOccupiedTimes(appts.map(a => a.time));
+
+      if (blocks) {
+        // Verifica se barbearia está fechada
+        const closed = blocks.some(b => b.type === 'closed');
+        setIsClosed(closed);
+
+        // Verifica se o dia específico está bloqueado
+        const dayBlocked = blocks.some(b => b.type === 'day' && b.date === selectedDate);
+        setIsDayBlocked(dayBlocked);
+
+        // Horários fixos bloqueados
+        const times = blocks.filter(b => b.type === 'time').map(b => b.time);
+        setBlockedTimes(times);
+      }
     } catch (e) {
-      console.warn('Erro ao buscar horários:', e);
+      console.warn('Erro ao buscar disponibilidade:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const isOccupied = (time) => occupiedTimes.includes(time);
+  const isUnavailable = (time) =>
+    occupiedTimes.includes(time) || blockedTimes.includes(time);
 
   const handleSelectTime = (time) => {
-    if (isOccupied(time)) return;
+    if (isUnavailable(time)) return;
     setSelectedTime(time);
   };
+
+  // Barbearia fechada ou dia bloqueado
+  if (!loading && (isClosed || isDayBlocked)) {
+    return (
+      <View style={s.container}>
+        <LinearGradient colors={['#000', '#0d0f08', '#000']} style={StyleSheet.absoluteFill} />
+        <View style={s.closedBox}>
+          <Text style={s.closedIcon}>{isClosed ? '🔴' : '📅'}</Text>
+          <Text style={s.closedTitle}>
+            {isClosed ? 'Barbearia Fechada' : 'Dia Indisponível'}
+          </Text>
+          <Text style={s.closedSub}>
+            {isClosed
+              ? 'A barbearia está temporariamente fechada.\nTente novamente mais tarde.'
+              : `O dia ${formattedDate} está bloqueado pelo barbeiro.\nEscolha outra data.`}
+          </Text>
+          <TouchableOpacity style={s.closedBtn} onPress={() => navigation.goBack()}>
+            <LinearGradient colors={['#4B5320','#2d3314']} style={s.gradBtn}>
+              <Text style={s.closedBtnText}>← ESCOLHER OUTRA DATA</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={s.backText}>← Voltar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={s.container}>
@@ -94,7 +149,7 @@ export default function TimeSelectionScreen({ navigation, route }) {
           {[
             { color: '#111',    border: '#1d1d1d', label: 'Disponível'  },
             { color: '#4B5320', border: '#6B8E23', label: 'Selecionado' },
-            { color: '#1a0a0a', border: '#3a1a1a', label: 'Ocupado'     },
+            { color: '#1a0a0a', border: '#3a1a1a', label: 'Indisponível'},
           ].map(({ color, border, label }) => (
             <View key={label} style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: color, borderColor: border }]} />
@@ -118,24 +173,24 @@ export default function TimeSelectionScreen({ navigation, route }) {
               </View>
               <View style={s.slotsGrid}>
                 {TIMES.filter(t => t.period === period).map(({ time }) => {
-                  const sel      = selectedTime === time;
-                  const occupied = isOccupied(time);
+                  const sel         = selectedTime === time;
+                  const unavailable = isUnavailable(time);
                   return (
                     <TouchableOpacity
                       key={time}
-                      style={[s.slot, sel && s.slotSel, occupied && s.slotOccupied]}
+                      style={[s.slot, sel && s.slotSel, unavailable && s.slotOccupied]}
                       onPress={() => handleSelectTime(time)}
-                      disabled={occupied}
-                      activeOpacity={occupied ? 1 : 0.7}
+                      disabled={unavailable}
+                      activeOpacity={unavailable ? 1 : 0.7}
                     >
-                      {sel && !occupied && (
+                      {sel && !unavailable && (
                         <LinearGradient colors={['#4B5320','#2d3314']} style={[StyleSheet.absoluteFill,{borderRadius:12}]} />
                       )}
-                      <Text style={[s.slotTime, sel && s.slotTimeSel, occupied && s.slotTimeOccupied]}>
+                      <Text style={[s.slotTime, sel && s.slotTimeSel, unavailable && s.slotTimeOccupied]}>
                         {time}
                       </Text>
-                      {sel      && <Text style={s.checkIcon}>✓</Text>}
-                      {occupied && <Text style={s.lockIcon}>🔒</Text>}
+                      {sel        && <Text style={s.checkIcon}>✓</Text>}
+                      {unavailable && <Text style={s.lockIcon}>🔒</Text>}
                     </TouchableOpacity>
                   );
                 })}
@@ -146,8 +201,8 @@ export default function TimeSelectionScreen({ navigation, route }) {
 
         <View style={s.tipBox}>
           <Text style={s.tipText}>
-            {occupiedTimes.length > 0
-              ? `🔒 ${occupiedTimes.length} horário(s) já reservado(s) neste dia.`
+            {occupiedTimes.length + blockedTimes.length > 0
+              ? `🔒 ${occupiedTimes.length + blockedTimes.length} horário(s) indisponível(eis) neste dia.`
               : '💡 Todos os horários estão disponíveis para esta data.'}
           </Text>
         </View>
@@ -182,6 +237,13 @@ const s = StyleSheet.create({
   scroll:    { padding: 24, paddingTop: 56, paddingBottom: 180 },
   badge:     { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6 },
   title:     { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 20 },
+
+  closedBox:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  closedIcon:   { fontSize: 64, marginBottom: 20 },
+  closedTitle:  { color: '#FFF', fontSize: 26, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
+  closedSub:    { color: '#555', fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+  closedBtn:    { width: '100%', height: 54, borderRadius: 14, overflow: 'hidden' },
+  closedBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
 
   summaryCard:  { backgroundColor: '#0d0d0d', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#1a1a1a', marginBottom: 16 },
   sectionTitle: { color: '#4B5320', fontSize: 9, fontWeight: 'bold', letterSpacing: 2, marginBottom: 16 },

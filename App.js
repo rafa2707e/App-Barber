@@ -19,7 +19,8 @@ import MyAppointmentsScreen  from './screens/MyAppointmentsScreen';
 import PhotoUploadScreen     from './screens/PhotoUploadScreen';
 import ProfileScreen         from './screens/ProfileScreen';
 import BarberAgendaScreen    from './screens/BarberAgendaScreen';
-import BarberScheduleScreen  from './screens/BarberScheduleScreen ';
+import BarberScheduleScreen  from './screens/BarberScheduleScreen';
+import BarberDashboardScreen from './screens/BarberDashboardScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -64,15 +65,17 @@ function ClientTabs() {
 
 function BarberTabs() {
   const TABS = [
-    { route: 'BarberAgenda',    icon: '📅', label: 'Agenda'   },
-    { route: 'BarberSchedule',  icon: '⚙️', label: 'Horários' },
-    { route: 'BarberProfile',   icon: '👤', label: 'Perfil'   },
+    { route: 'BarberAgenda',    icon: '📅', label: 'Agenda'    },
+    { route: 'BarberDashboard', icon: '📊', label: 'Dashboard' },
+    { route: 'BarberSchedule',  icon: '⚙️', label: 'Horários'  },
+    { route: 'BarberProfile',   icon: '👤', label: 'Perfil'    },
   ];
   return (
     <Tab.Navigator tabBar={props => <CustomTabBar tabs={TABS} {...props} />} screenOptions={{ headerShown: false }}>
-      <Tab.Screen name="BarberAgenda"   component={BarberAgendaScreen}   />
-      <Tab.Screen name="BarberSchedule" component={BarberScheduleScreen} />
-      <Tab.Screen name="BarberProfile"  component={ProfileScreen}        />
+      <Tab.Screen name="BarberAgenda"    component={BarberAgendaScreen}    />
+      <Tab.Screen name="BarberDashboard" component={BarberDashboardScreen} />
+      <Tab.Screen name="BarberSchedule"  component={BarberScheduleScreen}  />
+      <Tab.Screen name="BarberProfile"   component={ProfileScreen}         />
     </Tab.Navigator>
   );
 }
@@ -117,6 +120,7 @@ function RootNavigator() {
   }, [user, loading]);
 
   const checkOnboarding = async (userId) => {
+    await AsyncStorage.clear(); // limpa cache — remove após funcionar
     const key  = `onboarding_done_${userId}`;
     const done = await AsyncStorage.getItem(key);
     setOnboardingDone(done === 'true');
